@@ -1,5 +1,7 @@
 # simple-voxel-raycaster
 this is my simple voxel engine, appart from librairies like glad it is entierly written in C++ and GLSL
+here is a gif:
+https://gfycat.com/nippyunfoldediggypops
 
 this project runs on opengl 4.6 and uses GLAD this is a download to the configuartion im using so not to take up too much space
 https://glad.dav1d.de/#language=c&specification=gl&api=gl%3D4.6&api=gles1%3Dnone&api=gles2%3Dnone&api=glsc2%3Dnone&profile=compatibility&loader=on
@@ -24,3 +26,5 @@ controls:
   -setting your window too large will make you look backwards(you should be fine unless you use fullscreen)
   -edges are see through(no DDA)
  (if you find some more please tell me)
+ 
+
