@@ -105,7 +105,7 @@ vec4 raycast()
     
     vec3 RayStep = FindRayStep();
     vec3 rayPosition = FindRayPosition();
-    vec4 finalcolor = CastRay(600,rayPosition,RayStep);
+    vec4 finalcolor = CastRay(600,rayPosition,RayStep);     //600 is the current max amount of steps if you want to go higher i wouldnt recommend going past 2400 but do as you will
     return finalcolor;
 }
 
