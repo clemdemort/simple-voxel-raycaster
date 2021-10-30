@@ -22,6 +22,7 @@ controls:
  (if you feel the render distance is too small you can modify the max amount of steps in the fragment shader)
  
  KNOWN BUGS:
+
   -terrible warping(still looking into it)
 
   -setting your window too large will make you look backwards(you should be fine unless you try to strech the window horizontaly **A LOT**)
