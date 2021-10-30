@@ -1,3 +1,4 @@
+//----------Made by clemdemort----------//
 #version 430 core
 out vec4 FragColor;
 uniform int fov;
@@ -17,12 +18,12 @@ uniform vec2 ratio;         //twitter moment
 uniform vec2 Screen;
 uniform vec3 voxellist;
 
-
+//here is my voxel data please be nice, it's very sensitive /0-0\
 layout (std430, binding=3) buffer shader_data
 { 
     uint voxels[];      
 };
-
+//the almighty one
 float PI = 3.142857;
 
 
@@ -48,65 +49,40 @@ void dither(float power){
 //the index function used to access an element in the "voxels" array
 int IDX(int x,int y,int z){
     int id = int((z*voxellist.y*voxellist.x) + (y*voxellist.x) + x);
-
     return id;
 }
 vec4 DeCompressCol(uint col)
 {   
-    //int col = int (colo);
-    unsigned int R = (col /unsigned int(256 * 256 * 256));
-    unsigned int G = ((col - (R * (256 * 256 * 256))) / (256 * 256));
-    unsigned int B = ((col - (R * (256 * 256 * 256) + (G * 256 * 256))) / (256));
-    unsigned int A = ((col - (R * (256 * 256 * 256) + (G * 256 * 256) + (B * 256))));
-    float Rf = float(R)/256.;
+    //this code decompresses the voxel Data into various colours, as of yet it support 256^4 RGBA colours 
+    //which is a bit dumb so i'll reduce it to 128^4 and add different effects like reflection or light emmision
+    //and use it in my Signed Distance Field!!!
+    unsigned int R = (col /unsigned int(256 * 256 * 256));                              //gets red hue
+    unsigned int G = ((col - (R * (256 * 256 * 256))) / (256 * 256));                   //gets green hue
+    unsigned int B = ((col - (R * (256 * 256 * 256) + (G * 256 * 256))) / (256));       //gets blue hue
+    unsigned int A = ((col - (R * (256 * 256 * 256) + (G * 256 * 256) + (B * 256))));   //gets alpha hue
+    float Rf = float(R)/256.;   //normalisation time yaay
     float Gf = float(G)/256.;
     float Bf = float(B)/256.;
     float Af = float(A)/256.;
-    vec4 finalcolor = vec4(Rf,Gf,Bf,Af);
+    vec4 finalcolor = vec4(Rf,Gf,Bf,Af);    //and finaly return the colour
     return finalcolor;
 }
-//per ray calculations:
-//  setp 1: find rotation of individual ray
-//      -create an fov base should be 90                                                            - done
-//      -translate fov from degrees to radians                                                      - done
-//      -find camera angle, use that!                                                               - done
-//      -use fragcoord (goes from -1 to 1) so at max a ray will have +/- -> fov/2 from the camera   - done 
-
-//  step2: make the rays step until they touch something opaque
-//      -find the ray position depending on the camera and their position on screen                 - done
-//      -calculate the step of the ray for the x,y,z cartesian coordinates                          - done
-//      -repeat 100 times unless until something is hit then return the color                       - done
-/*
-that will produce just such an artifact at the top and bottom, for the same reason the arctic and antarctic are stretched super wide in most maps
-you want to use a camera projection which preserves straight lines, instead
-here is the simplest one, which is the conventional perspective projection:
-1. pick a direction you're looking, as a ray/vector.
-2. pick four points/vectors that make a rectangle with that direction at the center — this is your "picture frame", if you will
-3. now linearly interpolate between those four points, across the image, to get your raycast direction vectors for each pixel 
-when you linearly interpolate the coordinates of the direction vectors, you get a perspective projection
-interpolating angles as you are currently doing does not 
-"make a rectangle" is a bit underspecified and it may be easiest to copy the perspective math that is used for setting up regular GPU drawing
-you just use the same projection and view matrices, except backwards: take a screen-space pair of points with different Z, and XY corresponding to the pixel you want to compute, put them through the matrix to get world-space, and that's your ray to trace
-
-use tan(fov) to compute the direction vectors at the edge of the image
-then linearly interpolate between those two vectors
-do not use an interpolated angle; that's what makes the distortion you have
-*/
 
 vec3 FindRayStep()
 {
-    float DistTo1 = ((1.0f+FragCoord.x)+(1.0f+FragCoord.y))/2;
+    //bi-linearly interpolates the ray steps
+    float DistTo1 = ((1.0f+FragCoord.x)+(1.0f+FragCoord.y))/2;  //gets distance for each pixel to the screen corner
     float DistTo2 = ((1.0f-FragCoord.x)+(1.0f+FragCoord.y))/2;
     float DistTo3 = ((1.0f-FragCoord.x)+(1.0f-FragCoord.y))/2;
     float DistTo4 = ((1.0f+FragCoord.x)+(1.0f-FragCoord.y))/2;
      
-    vec3 Step;
+    vec3 Step;  //based on that distance it will set it's direction
     Step = 0.25*((DistTo1) * rectRayUPRIGHT + (DistTo2) * rectRayUPLEFT + (DistTo3) * rectRayDOWNLEFT + (DistTo4) * rectRayDOWNRIGHT);
     return Step;
 }
 vec3 FindRayPosition()
 {
-    //in case i want to add stuff
+    //in case i want to add stuff but yeah i know over engeneering blah blah...
      vec3 p = CameraPos;
      return p;
 }
@@ -128,7 +104,7 @@ vec4 CastRay(int times, vec3 position, vec3 Step)
             touched     =    true;
             color       =    (vec4(DeCompressCol(voxels[IDX(x,y,z)])*50)+vec4(0,0,1,1)*(dist))/(50+dist);
         }
-        //color = vec4(float(i)/times, 0.,0.,1.);
+        //color = vec4(float(i)/times, 0.,0.,1.); //this is to see the cost of each ray, the more red the more impactfull on the performance
         i++;
     }
     if (touched == false){color = vec4(0.,0.,1.,1);} 
@@ -136,10 +112,10 @@ vec4 CastRay(int times, vec3 position, vec3 Step)
 }
 vec4 raycast()
 {
-    vec3 RayStep = FindRayStep();
-    vec3 rayPosition = FindRayPosition();
-    vec4 finalcolor = CastRay(700,rayPosition,RayStep);
-    return finalcolor;
+    vec3 RayStep = FindRayStep();                       //finds the step for each ray
+    vec3 rayPosition = FindRayPosition();               //finds the ray position(pretty much the camera position but if i want to do some funky stuff i'll keep it)
+    vec4 finalcolor = CastRay(700,rayPosition,RayStep); //casts the ray then the ray will return an RGBA colour
+    return finalcolor;                                  //returns the colour the ray returned and sets it as the colour of the fragment
 }
 
 
@@ -147,7 +123,7 @@ void main()
 {   
     FragColor = vec4(0.,0.,0.,0.);
     FragColor = raycast();
-    //blend(vec4(0.5,1,1,0.05/dist(correction(FragCoord),correction(Mouse))));        //this isn't important
+    //blend(vec4(0.5,1,1,0.05/dist(correction(FragCoord),correction(Mouse))));        //this isn't important but i want to keep it
 
     dither(2);
 }
