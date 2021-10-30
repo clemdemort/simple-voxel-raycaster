@@ -12,13 +12,20 @@ once downloaded put the "glad.c" source file inside the main folder
 
 HOW TO USE:
 controls: 
+
   W: forward
+
   A: turn left
+
   S: backwards
+
   D: turn right
+
   E: look up
+
   Q: look down
   
+PS:
  (if you feel the render distance is too small you can modify the max amount of steps in the fragment shader)
  
  KNOWN BUGS:
