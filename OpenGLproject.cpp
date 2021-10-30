@@ -9,18 +9,18 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 
 // settings
-const unsigned int SCR_WIDTH = 500;
-const unsigned int SCR_HEIGHT = 500;
+const unsigned int SCR_WIDTH = 1000;
+const unsigned int SCR_HEIGHT = 700;
 int screenX = SCR_WIDTH;int screenY = SCR_HEIGHT;
 float PI = 3.142857;
-
+float speed = 0;
 float timeNow = 0;
 float timeNow2 = glfwGetTime();
 float timerguy = -0;
 float timer;
 int data[16][16];
 
-float camX = 25, camY = 7, camZ = 40, rotX = 0, rotY = 0;
+float camX = -1.53456, camY = -4.64066, camZ = -9.36055, rotX = 4.33569, rotY = -1.83256;
 void getTime()
 {
     timeNow2 = glfwGetTime();
@@ -113,26 +113,35 @@ int main()
     // glBindVertexArray(0);
 
     //this is what my code is currently doing(not voxels YET) so it's using the array to color pixels on the screen
-    const int pwidth = 100; const int pheight = 100; const int pdepth = 100;
-    float* voxlptr = new float[pwidth * pheight * pdepth * 4];      //4 at the end represents the vec4 for colour
+    const int pwidth = 600; const int pheight = 50; const int pdepth = 550;
+    unsigned int* voxlptr = new unsigned int[pwidth * pheight * pdepth * 1];      //4 at the end represents the vec4 for colour
 
     for (int i = 0; i < pwidth; i++)     // a quick way to populate the scene
         for (int j = 0; j < pheight; j++)
             for (int k = 0; k < pdepth; k++)
             {   
+                int t = -1;
+                if (10*(1 + sin((i + k) / 20.))+ 5 * (1 + sin((i - k) / 20.)) + 1 * (1 + sin((i - k)/5)) + 1 * (1 + sin((i + k)/5)) < j) { t = 256; }
+               int r = rand() % 10;
+                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int ((256*256*256* (20+rand() % 50))+( 256*256* (70+rand() % 128)) + (256 * (rand () % 5)) + (t)); //256^1
+                if (r == 0) { voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] += 0; }                        //256^4
+                else { voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] += 0; }
+                unsigned int col = voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)];
+                //std::cout << col << std::endl;
                 
-                int r = rand() % 10;
-                voxlptr[(k * pwidth * pheight * 4) + (j * pwidth * 4) + i * 4 + (0)] = float(1.0 / (256.0f / float(rand() % 256)));
-                voxlptr[(k * pwidth * pheight * 4) + (j * pwidth * 4) + i * 4 + (1)] = float(1.0 / (256.0f / float(rand() % 256)));
-                voxlptr[(k * pwidth * pheight * 4) + (j * pwidth * 4) + i * 4 + (2)] = float(1.0 / (256.0f / float(rand() % 256)));
-                if (r == 0) { voxlptr[(k * pwidth * pheight * 4) + (j * pwidth * 4) + i * 4 + (3)] = 1.0f; }
-                else { voxlptr[(k * pwidth * pheight * 4) + (j * pwidth * 4) + i * 4 + (3)] = 0.0f; }
-                
+                unsigned int R = (col /unsigned int(256 * 256 * 256));
+                unsigned int G = ((col - (R * (256 * 256 * 256))) / (256 * 256));
+                unsigned int B = ((col - (R * (256 * 256 * 256) + (G * 256 * 256))) / (256));
+                unsigned int A = ((col - (R * (256 * 256 * 256) + (G * 256 * 256) + (B * 256))));
+                //std::cout << R << std::endl;
+                //std::cout << G << std::endl;
+                //std::cout << B << std::endl;
+                //std::cout << A << std::endl;
                 
             }
     
     //this is how i transfer the contents of my array to my shader(absolutely not stolen shamelessly)
-    int arrSize =(4* pwidth * pheight * pdepth * 4);
+    int arrSize =(4 * pwidth * pheight * pdepth);
     GLuint ssbo = 0;
     glGenBuffers(1, &ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
@@ -158,18 +167,19 @@ int main()
 
         ourShader.setV3Float("voxellist", (float)pwidth, (float)pheight, (float)pdepth);
         ourShader.setFloat("iTime", glfwGetTime());
+        ourShader.setFloat("ElapsedTime", timer);
         double x,y;/*gets cursor position -->*/glfwGetCursorPos(window, &x, &y);/*Inputs it in the shader*/ourShader.setV2Float("Mouse", (float)(x - (screenX/2)) * (1.0f / (screenX/2)), (float)(y - (screenY / 2)) * (-1.0f / (screenY / 2)));
         ourShader.setV3Float("CameraPos", camX, camY, camZ);
         ourShader.setV2Float("CameraRot", rotX, rotY);
         ourShader.setV2Float("ratio", ((float)screenX / (float)screenY),1.0f);
         ourShader.setV2Float("Screen", screenX,screenY);
         //trigger warning VERY ugly code
-        float FOV = 90;
+        float FOV = 70;
         float stepsize = 1.0f/10;
         if (FOV != 0){
                 float ratio = ((float)screenX / (float)screenY);
                 float rfov = (FOV / 180) * PI;
-                float x = rotX + ((rfov / 2) * 1.62 * ratio);
+                float x = rotX + ((rfov / 2) * 1. * ratio);
                 float y = rotY + ((rfov / 2) * 1.);
                 float RAx = x;
                 float RAy = y;
@@ -181,7 +191,7 @@ int main()
                 z = stepsize * sin(RAx) * sin(RAy);
                 ourShader.setV3Float("rectRayUPRIGHT", x, y, z);
                 
-                x = rotX + ((rfov / 2) * -1.62 * ratio); //the times 1.62 is just a hotfix because otherwise the voxels are W I D E
+                x = rotX + ((rfov / 2) * -1. * ratio);
                 y = rotY + ((rfov / 2) * 1.);
                 RAx = x;
                 RAy = y;
@@ -191,7 +201,7 @@ int main()
                 z = stepsize * sin(RAx) * sin(RAy);
                 ourShader.setV3Float("rectRayUPLEFT", x, y, z);
 
-                x = rotX + ((rfov / 2) * -1.62 * ratio);
+                x = rotX + ((rfov / 2) * -1 * ratio);
                 y = rotY + ((rfov / 2) * -1.);
                 RAx = x;
                 RAy = y;
@@ -201,7 +211,7 @@ int main()
                 z = stepsize * sin(RAx) * sin(RAy);
                 ourShader.setV3Float("rectRayDOWNLEFT", x, y, z);
 
-                x = rotX + ((rfov / 2) * 1.62 * ratio);
+                x = rotX + ((rfov / 2) * 1. * ratio);
                 y = rotY + ((rfov / 2) * -1.);
                 RAx = x;
                 RAy = y;
@@ -238,7 +248,7 @@ int main()
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &ssbo);
     delete[] voxlptr;
-
+    std::cout << "program ran for: " << glfwGetTime() << " seconds" << std::endl;
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
     glfwTerminate();
@@ -251,20 +261,22 @@ void processInput(GLFWwindow* window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
-
+    
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        camX += timer * 5 * cos(rotX) * sin(rotY);
-        camY += timer * -5 * cos(rotY);
-        camZ += timer * 5 * sin(rotX) * sin(rotY);
+        speed += 3;
     }
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        camX -= timer * 5 * cos(rotX) * sin(rotY);
-        camY -= timer * -5 * cos(rotY);
-        camZ -= timer * 5 * sin(rotX) * sin(rotY);
+        speed -= 3;
     }
 
+    camX += timer * speed * cos(rotX) * sin(rotY);
+    camY += timer * -speed * cos(rotY);
+    camZ += timer * speed * sin(rotX) * sin(rotY);
+    speed *= 0.92 * (timer / timer);
+    
+    
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         rotX -= timer;
 
