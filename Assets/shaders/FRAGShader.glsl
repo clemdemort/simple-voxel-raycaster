@@ -18,7 +18,7 @@ uniform vec2 ratio;         //twitter moment
 uniform vec2 Screen;
 uniform vec3 voxellist;
 
-//here is my voxel data please be nice, it's very sensitive /0-0\
+//here is my voxel data please be nice, it's very sensitive 
 layout (std430, binding=3) buffer shader_data
 { 
     uint voxels[];      
