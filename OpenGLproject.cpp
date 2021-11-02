@@ -7,11 +7,11 @@
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
-
+//I'll put this as a quick disclaimer, but yes I know my code is dirty, and some cleaning up ought to be done, though I believe this is an OK way to code for someone with little experience with coding so please bear with me ;)
 // settings
 const unsigned int SCR_WIDTH = 1000;
 const unsigned int SCR_HEIGHT = 700;
-int screenX = SCR_WIDTH;int screenY = SCR_HEIGHT;
+int screenX = SCR_WIDTH;int screenY = SCR_HEIGHT; // screenX and screenY are variables used to redefine the viewport and therefore NEED to allow for changes in value
 float PI = 3.142857;
 float speed = 0;
 float timeNow = 0;
@@ -112,16 +112,16 @@ int main()
     // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
     // glBindVertexArray(0);
 
-    //this is what my code is currently doing(not voxels YET) so it's using the array to color pixels on the screen
+    //Generates a 600 by 50 by 550 voxel space
     const int pwidth = 600; const int pheight = 50; const int pdepth = 550;
-    unsigned int* voxlptr = new unsigned int[pwidth * pheight * pdepth * 1];      //4 at the end represents the vec4 for colour
+    unsigned int* voxlptr = new unsigned int[pwidth * pheight * pdepth * 1];      //the array is flat because I need it to be so for compression
 
     for (int i = 0; i < pwidth; i++)     // a quick way to populate the scene
         for (int j = 0; j < pheight; j++)
             for (int k = 0; k < pdepth; k++)
             {   
                 int t = -1;
-                if (10*(1 + sin((i + k) / 20.))+ 5 * (1 + sin((i - k) / 20.)) + 1 * (1 + sin((i - k)/5)) + 1 * (1 + sin((i + k)/5)) < j) { t = 256; }
+                if (10*(1 + sin((i + k) / 20.))+ 5 * (1 + sin((i - k) / 20.)) + 1 * (1 + sin((i - k)/5)) + 1 * (1 + sin((i + k)/5)) < j) { t = 256; } //here is the condition for each voxel to spawn
                int r = rand() % 10;
                 voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int ((256*256*256* (20+rand() % 50))+( 256*256* (70+rand() % 128)) + (256 * (rand () % 5)) + (t)); //256^1
                 if (r == 0) { voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] += 0; }                        //256^4
@@ -129,10 +129,11 @@ int main()
                 unsigned int col = voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)];
                 //std::cout << col << std::endl;
                 
-                unsigned int R = (col /unsigned int(256 * 256 * 256));
-                unsigned int G = ((col - (R * (256 * 256 * 256))) / (256 * 256));
-                unsigned int B = ((col - (R * (256 * 256 * 256) + (G * 256 * 256))) / (256));
-                unsigned int A = ((col - (R * (256 * 256 * 256) + (G * 256 * 256) + (B * 256))));
+                //Some testing code below
+                //unsigned int R = (col /unsigned int(256 * 256 * 256));
+                //unsigned int G = ((col - (R * (256 * 256 * 256))) / (256 * 256));
+                //unsigned int B = ((col - (R * (256 * 256 * 256) + (G * 256 * 256))) / (256));
+                //unsigned int A = ((col - (R * (256 * 256 * 256) + (G * 256 * 256) + (B * 256))));
                 //std::cout << R << std::endl;
                 //std::cout << G << std::endl;
                 //std::cout << B << std::endl;
@@ -140,7 +141,7 @@ int main()
                 
             }
     
-    //this is how i transfer the contents of my array to my shader(absolutely not stolen shamelessly)
+    //this is how i transfer the contents of my array to my shader(absolutely didn't take me ages to figure out ;))
     int arrSize =(4 * pwidth * pheight * pdepth);
     GLuint ssbo = 0;
     glGenBuffers(1, &ssbo);
