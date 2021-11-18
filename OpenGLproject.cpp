@@ -1,5 +1,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm/glm.hpp>
+#include <glm/glm/gtc/type_ptr.hpp>
 #include<sstream>
 #include "shader.h"
 #include <memory>
@@ -7,45 +9,24 @@
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
-//I'll put this as a quick disclaimer, but yes I know my code is dirty, and some cleaning up ought to be done, though I believe this is an OK way to code for someone with little experience with coding so please bear with me ;)
+void getTime();
+void setTitle(float Dspeed, GLFWwindow* window);
+glm::vec3 cornerRaycalc(float FOV, float cornerX, float cornerY);
+
 // settings
-const unsigned int SCR_WIDTH = 1000;
-const unsigned int SCR_HEIGHT = 700;
-int screenX = SCR_WIDTH;int screenY = SCR_HEIGHT; // screenX and screenY are variables used to redefine the viewport and therefore NEED to allow for changes in value
+const unsigned int SCR_WIDTH = 600;
+const unsigned int SCR_HEIGHT = 600;
+int screenX = SCR_WIDTH;
+int screenY = SCR_HEIGHT;
 float PI = 3.142857;
-float speed = 0;
-float timeNow = 0;
+float speed;
+float timeNow ;
 float timeNow2 = glfwGetTime();
-float timerguy = -0;
+float timerguy;
 float timer;
 int data[16][16];
 
-float camX = -1.53456, camY = -4.64066, camZ = -9.36055, rotX = 4.33569, rotY = -1.83256;
-void getTime()
-{
-    timeNow2 = glfwGetTime();
-    float elapsedtime = timeNow2 - timeNow;
-    timeNow = timeNow2;
-    timer = elapsedtime;
-    timerguy += elapsedtime;
-
-}
-void setTitle(float Dspeed,GLFWwindow *window)
-{
-    //will set the fps counter to 1/timerguy
-    if (Dspeed < timerguy) {
-        int fps = 1 / timer;
-        timerguy = 0;
-        std::stringstream ss;
-        ss << fps;
-        std::string temp = ss.str();
-        std::string temp2 = "GLSL/C++ (GPU) -FPS:" + temp;
-        char* FPS = (char*)temp2.c_str();
-        glfwSetWindowTitle(window, FPS);
-    }
-}
-
-
+float camX = 20, camY = 40, camZ = 20, rotX = 0, rotY = 0, rotZ = 0;
 int main()
 {
     // glfw: initialize and configure
@@ -89,7 +70,7 @@ int main()
         // positions         // colors
          3.0f, -1.0f, 1.0f,  1.0f, 0.0f, 0.0f,  // bottom right
         -1.0f, -1.0f, 1.0f,  0.0f, 1.0f, 0.0f,  // bottom left
-         -1.0f,  3.0f, 1.0f,  0.0f, 0.0f, 1.0f   // top 
+        -1.0f,  3.0f, 1.0f,  0.0f, 0.0f, 1.0f   // top 
     };
 
     unsigned int VBO, VAO;
@@ -108,41 +89,33 @@ int main()
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-    // glBindVertexArray(0);
-
-    //Generates a 600 by 50 by 550 voxel space
-    const int pwidth = 600; const int pheight = 50; const int pdepth = 550;
-    unsigned int* voxlptr = new unsigned int[pwidth * pheight * pdepth * 1];      //the array is flat because I need it to be so for compression
+    //this is what my code is currently doing(not voxels YET) so it's using the array to color pixels on the screen
+    const int pwidth = 100; const int pheight = 100; const int pdepth = 100;
+    unsigned int* voxlptr = new unsigned int[pwidth * pheight * pdepth * 1];      //4 at the end represents the vec4 for colour
 
     for (int i = 0; i < pwidth; i++)     // a quick way to populate the scene
         for (int j = 0; j < pheight; j++)
             for (int k = 0; k < pdepth; k++)
-            {   
-                int t = -1;
-                if (10*(1 + sin((i + k) / 20.))+ 5 * (1 + sin((i - k) / 20.)) + 1 * (1 + sin((i - k)/5)) + 1 * (1 + sin((i + k)/5)) < j) { t = 256; } //here is the condition for each voxel to spawn
-               int r = rand() % 10;
-                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int ((256*256*256* (20+rand() % 50))+( 256*256* (70+rand() % 128)) + (256 * (rand () % 5)) + (t)); //256^1
-                if (r == 0) { voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] += 0; }                        //256^4
-                else { voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] += 0; }
+            {
+                unsigned int t = -1;
+                if (sqrt((50 - i) * (50 - i) + (50 - j) * (50 - j) + (50 - k) * (50 - k)) < 50)
+                {   
+                    t = 25;
+                }
+                int r = rand() % 10;
+                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin(i / 12.8))))) + (256 * 256 * int(128 * (1. + (sin(j / 12.8))))) + (256 * int(128 * (1. + (cos(k / 12.8))))) + (t)); //256^1
                 unsigned int col = voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)];
-                //std::cout << col << std::endl;
-                
-                //Some testing code below
-                //unsigned int R = (col /unsigned int(256 * 256 * 256));
-                //unsigned int G = ((col - (R * (256 * 256 * 256))) / (256 * 256));
-                //unsigned int B = ((col - (R * (256 * 256 * 256) + (G * 256 * 256))) / (256));
-                //unsigned int A = ((col - (R * (256 * 256 * 256) + (G * 256 * 256) + (B * 256))));
-                //std::cout << R << std::endl;
-                //std::cout << G << std::endl;
-                //std::cout << B << std::endl;
-                //std::cout << A << std::endl;
-                
+
+                /*unsigned int R = (col / unsigned int(256 * 256 * 256));
+                unsigned int G = ((col - (R * (256 * 256 * 256))) / (256 * 256));
+                unsigned int B = ((col - (R * (256 * 256 * 256) + (G * 256 * 256))) / (256));
+                unsigned int A = ((col - (R * (256 * 256 * 256) + (G * 256 * 256) + (B * 256))));
+                */
             }
-    
-    //this is how i transfer the contents of my array to my shader(absolutely didn't take me ages to figure out ;))
-    int arrSize =(4 * pwidth * pheight * pdepth);
+
+    //this is how i transfer the contents of my array to my shader
+    //------------------------------------------------------------
+    int arrSize = (4 * pwidth * pheight * pdepth);
     GLuint ssbo = 0;
     glGenBuffers(1, &ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
@@ -151,95 +124,48 @@ int main()
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
     GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
     memcpy(p, voxlptr, arrSize);
+
     // render loop
     // -----------
-
-
     while (!glfwWindowShouldClose(window))
     {
         getTime();
         if(0.01 < timerguy )
         {
-        setTitle(0.25,window);
-        
-        // input
-        // -----
-        processInput(window);
-
-        ourShader.setV3Float("voxellist", (float)pwidth, (float)pheight, (float)pdepth);
-        ourShader.setFloat("iTime", glfwGetTime());
-        ourShader.setFloat("ElapsedTime", timer);
-        double x,y;/*gets cursor position -->*/glfwGetCursorPos(window, &x, &y);/*Inputs it in the shader*/ourShader.setV2Float("Mouse", (float)(x - (screenX/2)) * (1.0f / (screenX/2)), (float)(y - (screenY / 2)) * (-1.0f / (screenY / 2)));
-        ourShader.setV3Float("CameraPos", camX, camY, camZ);
-        ourShader.setV2Float("CameraRot", rotX, rotY);
-        ourShader.setV2Float("ratio", ((float)screenX / (float)screenY),1.0f);
-        ourShader.setV2Float("Screen", screenX,screenY);
-        //trigger warning VERY ugly code
-        float FOV = 70;
-        float stepsize = 1.0f/10;
-        if (FOV != 0){
-                float ratio = ((float)screenX / (float)screenY);
-                float rfov = (FOV / 180) * PI;
-                float x = rotX + ((rfov / 2) * 1. * ratio);
-                float y = rotY + ((rfov / 2) * 1.);
-                float RAx = x;
-                float RAy = y;
-                float z;
-
-                //calculates the 4 corner rays 
-                x = stepsize * cos(RAx) * sin(RAy);
-                y = -stepsize * cos(RAy);
-                z = stepsize * sin(RAx) * sin(RAy);
-                ourShader.setV3Float("rectRayUPRIGHT", x, y, z);
-                
-                x = rotX + ((rfov / 2) * -1. * ratio);
-                y = rotY + ((rfov / 2) * 1.);
-                RAx = x;
-                RAy = y;
-
-                x = stepsize * cos(RAx) * sin(RAy);
-                y = -stepsize * cos(RAy);
-                z = stepsize * sin(RAx) * sin(RAy);
-                ourShader.setV3Float("rectRayUPLEFT", x, y, z);
-
-                x = rotX + ((rfov / 2) * -1 * ratio);
-                y = rotY + ((rfov / 2) * -1.);
-                RAx = x;
-                RAy = y;
-
-                x = stepsize * cos(RAx) * sin(RAy);
-                y = -stepsize * cos(RAy);
-                z = stepsize * sin(RAx) * sin(RAy);
-                ourShader.setV3Float("rectRayDOWNLEFT", x, y, z);
-
-                x = rotX + ((rfov / 2) * 1. * ratio);
-                y = rotY + ((rfov / 2) * -1.);
-                RAx = x;
-                RAy = y;
-
-                x = stepsize * cos(RAx) * sin(RAy);
-                y = -stepsize * cos(RAy);
-                z = stepsize * sin(RAx) * sin(RAy);
-                ourShader.setV3Float("rectRayDOWNRIGHT", x, y, z);
+            setTitle(0.25,window);
             
-        }
+            // input
+            // -----
+            processInput(window);
+            
+            /*gets cursor position -->*/
+            double x,y;
+            glfwGetCursorPos(window, &x, &y);
+            ourShader.setV2Float("Mouse", (float)(x - (screenX / 2)) * (1.0f / (screenX / 2)), (float)(y - (screenY / 2)) * (-1.0f / (screenY / 2)));
 
+            ourShader.setV3Float("voxellist", (float)pwidth, (float)pheight, (float)pdepth);
+            ourShader.setFloat("iTime", glfwGetTime());
+            ourShader.setFloat("ElapsedTime", timer);
+            ourShader.setV3Float("CameraPos", camX, camY, camZ);
+            ourShader.setV3Float("cameraDir", sin(rotX) * cos(rotY) , sin(rotY), cos(rotX) * cos(rotY));
+            ourShader.setV3Float("CameraRot", rotX, rotY, rotZ);
+            ourShader.setV2Float("iResolution", (float)screenX, (float)screenY);
+            ourShader.setV2Float("Screen", screenX,screenY);
+            
+            float FOV = 70;
+            float stepsize = 1.0f / 10;
 
-        // render
-        // ------
-        //glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        //glClear(GL_COLOR_BUFFER_BIT);
-        
+       
 
-        // render the triangle
-        ourShader.use();
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+            // render the shader
+            ourShader.use();
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
 
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+            // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+            // -------------------------------------------------------------------------------
+            glfwSwapBuffers(window);
+            glfwPollEvents();
         }
     }
 
@@ -272,9 +198,9 @@ void processInput(GLFWwindow* window)
         speed -= 3;
     }
 
-    camX += timer * speed * cos(rotX) * sin(rotY);
-    camY += timer * -speed * cos(rotY);
-    camZ += timer * speed * sin(rotX) * sin(rotY);
+    camX += timer * speed * sin(rotX) * cos(rotY);
+    camY += timer * speed * sin(rotY);
+    camZ += timer * speed * cos(rotX) * cos(rotY);
     speed *= 0.92 * (timer / timer);
     
     
@@ -289,6 +215,7 @@ void processInput(GLFWwindow* window)
 
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
         rotY -= timer;
+
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
     {
         std::cout << "X:" << camX << std::endl;
@@ -297,10 +224,8 @@ void processInput(GLFWwindow* window)
         std::cout << "rotationX:" << rotX << std::endl;    
         std::cout << "rotationY:" << rotY << std::endl;    
     }
-    
-    //rotY += timer;
-        
 }
+
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -310,3 +235,58 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
     screenX = width;screenY = height;
 }
+
+void getTime()
+{
+    timeNow2 = glfwGetTime();
+    float elapsedtime = timeNow2 - timeNow;
+    timeNow = timeNow2;
+    timer = elapsedtime;
+    timerguy += elapsedtime;
+
+}
+
+void setTitle(float Dspeed, GLFWwindow* window)
+{
+    //will set the fps counter to 1/timerguy
+    if (Dspeed < timerguy) {
+        int fps = 1 / timer;
+        timerguy = 0;
+        std::stringstream ss;
+        ss << fps;
+        std::string temp = ss.str();
+        std::string temp2 = "GLSL/C++ (GPU) -FPS:" + temp;
+        char* FPS = (char*)temp2.c_str();
+        glfwSetWindowTitle(window, FPS);
+    }
+}
+
+//glm::vec3 cornerRaycalc(float FOV, float cornerX, float cornerY)
+//{
+//    float ratio = ((float)screenX / (float)screenY);        //gets screen width to height ratio
+//    float rfov = (FOV / 180) * PI;                          //converts FOV from degrees to radians
+//    float RAx = rotX + ((rfov / 2) * cornerX * ratio);      //rotation Angle for X
+//    float RAy = rotY + ((rfov / 2) * cornerY);              //rotation Angle for Y
+//
+//    float rotmatX[] =                                       //this is my rotation matrix for the X rotaion
+//    {
+//    1               ,  0                ,    0                      ,
+//    0               ,  cos(RAx)         ,    -sin(RAx)              ,
+//    0               ,  sin(RAx)         ,    cos(RAx)
+//    };
+//    glm::mat3 rotationmatrixX = glm::make_mat3(rotmatX);
+//
+//    float rotmatY[] =                                       //this is my rotation matrix for the Y rotaion
+//    {
+//    cos(RAy)               ,  0                ,    sin(RAy)      ,
+//    0                      ,  1                ,    0             ,
+//    -sin(RAy)              ,  0                ,    cos(RAy)
+//    };
+//    glm::mat3 rotationmatrixY = glm::make_mat3(rotmatY);
+//
+//    //sends whatever abomination this function created to the main loop which then passes it as a uniform
+//    //only done four times then these are linearly interpolated in the fragment shader to find the direction of each ray
+//    glm::vec3 rotation = glm::vec3(1.0f, 1.0f, 1.0f);
+//    return (rotation * rotationmatrixX) * rotationmatrixY;
+//
+//}
