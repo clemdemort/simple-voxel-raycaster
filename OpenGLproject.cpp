@@ -260,33 +260,3 @@ void setTitle(float Dspeed, GLFWwindow* window)
         glfwSetWindowTitle(window, FPS);
     }
 }
-
-//glm::vec3 cornerRaycalc(float FOV, float cornerX, float cornerY)
-//{
-//    float ratio = ((float)screenX / (float)screenY);        //gets screen width to height ratio
-//    float rfov = (FOV / 180) * PI;                          //converts FOV from degrees to radians
-//    float RAx = rotX + ((rfov / 2) * cornerX * ratio);      //rotation Angle for X
-//    float RAy = rotY + ((rfov / 2) * cornerY);              //rotation Angle for Y
-//
-//    float rotmatX[] =                                       //this is my rotation matrix for the X rotaion
-//    {
-//    1               ,  0                ,    0                      ,
-//    0               ,  cos(RAx)         ,    -sin(RAx)              ,
-//    0               ,  sin(RAx)         ,    cos(RAx)
-//    };
-//    glm::mat3 rotationmatrixX = glm::make_mat3(rotmatX);
-//
-//    float rotmatY[] =                                       //this is my rotation matrix for the Y rotaion
-//    {
-//    cos(RAy)               ,  0                ,    sin(RAy)      ,
-//    0                      ,  1                ,    0             ,
-//    -sin(RAy)              ,  0                ,    cos(RAy)
-//    };
-//    glm::mat3 rotationmatrixY = glm::make_mat3(rotmatY);
-//
-//    //sends whatever abomination this function created to the main loop which then passes it as a uniform
-//    //only done four times then these are linearly interpolated in the fragment shader to find the direction of each ray
-//    glm::vec3 rotation = glm::vec3(1.0f, 1.0f, 1.0f);
-//    return (rotation * rotationmatrixX) * rotationmatrixY;
-//
-//}
