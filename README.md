@@ -1,7 +1,9 @@
 # simple-voxel-raycaster
 this is my simple voxel engine, appart from librairies like glad it is entierly written in C++ and GLSL
 here is a gif:
-https://gfycat.com/nippyunfoldediggypops
+https://gfycat.com/nippyunfoldediggypops  (outdated)
+
+https://gfycat.com/wastefulnaturalchevrotain  (new)
 
 this project runs on opengl 4.6 and uses GLAD this is a download to the configuartion im using so not to take up too much space
 https://glad.dav1d.de/#language=c&specification=gl&api=gl%3D4.6&api=gles1%3Dnone&api=gles2%3Dnone&api=glsc2%3Dnone&profile=compatibility&loader=on
@@ -15,15 +17,15 @@ controls:
 
   W: forward
 
-  A: turn left
+  A: strafe left
 
   S: backwards
 
-  D: turn right
+  D: strafe right
 
-  E: look up
-
-  Q: look down
+  TAB: free mouse
+  
+  EXIT: exit application
   
 PS:
  (if you feel the render distance is too small you can modify the max amount of steps in the fragment shader)
