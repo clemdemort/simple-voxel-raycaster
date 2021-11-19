@@ -11,7 +11,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 void getTime();
 void setTitle(float Dspeed, GLFWwindow* window);
-glm::vec3 cornerRaycalc(float FOV, float cornerX, float cornerY);
 
 // settings
 const unsigned int SCR_WIDTH = 600;
