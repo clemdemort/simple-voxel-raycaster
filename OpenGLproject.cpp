@@ -2,15 +2,15 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm/glm.hpp>
 #include <glm/glm/gtc/type_ptr.hpp>
-#include<sstream>
+#include <sstream>
 #include "shader.h"
 #include <memory>
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
-void getTime();
 void setTitle(float Dspeed, GLFWwindow* window);
+bool Vsync(float frames);
 
 // settings
 const unsigned int SCR_WIDTH = 700;
@@ -19,11 +19,10 @@ int screenX = SCR_WIDTH;
 int screenY = SCR_HEIGHT;
 float PI = 3.142857;
 float speed;
-float timeNow ;
-float timeNow2 = glfwGetTime();
-float timerguy;
-float timer;
-int data[16][16];
+
+float timeNow = 0; float timeNow2 = glfwGetTime(); float ElapsedTime; float Vsyncclock;   //this is the time it will take for the shaders to be displayed
+float fpsclock = -0.5;  float fps1; float fps2;  float fpsTime;   //this is the time it will take for fps to be displayed
+
 
 float camX = 20, camY = 40, camZ = 20, rotX = 0, rotY = 0, rotZ = 0;
 int main()
@@ -50,6 +49,8 @@ int main()
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -97,8 +98,10 @@ int main()
             for (int k = 0; k < pdepth; k++)
             {
                 unsigned int t = -1;
-                float condition = sqrt((100 - i) * (100 - i) + (100 - j) * (100 - j) + (100 - k) * (100 - k)) + 2 * sin(k / 5.0) + 2 * sin(j / 5.0) + 2 * sin(i / 5.0);
-                if ( condition < 90 && condition > 60)
+                //this is the equation for a funky sphere
+                float condition = sqrt((100 - i) * (100 - i) + (100 - j) * (100 - j) + (100 - k) * (100 - k)) + 3 * cos((k + i) / 5.0) + 3 * sin((j + k) / 5.0) + 3 * sin((i + j) / 5.0);
+                
+                if (condition < 90 && condition > 80)
                 {   
                     t = 25;     //sets the voxel to visible
                 }
@@ -124,8 +127,7 @@ int main()
     // -----------
     while (!glfwWindowShouldClose(window))
     {
-        getTime();
-        if(0.01 < timerguy )
+        if (Vsync(60))
         {
             setTitle(0.25,window);
             
@@ -140,14 +142,13 @@ int main()
 
             ourShader.setV3Float("voxellist", (float)pwidth, (float)pheight, (float)pdepth);
             ourShader.setFloat("iTime", glfwGetTime());
-            ourShader.setFloat("ElapsedTime", timer);
+            ourShader.setFloat("ElapsedTime", fpsTime);
             ourShader.setV3Float("CameraPos", camX, camY, camZ);
             ourShader.setV2Float("CameraRot", rotX, rotY);
             ourShader.setV2Float("iResolution", (float)screenX, (float)screenY);
             ourShader.setV2Float("Screen", screenX,screenY);
             
-            float FOV = 70;
-            float stepsize = 1.0f / 10;
+            float FOV = 70; //useless as of yet but ill give it a use in the future *maybe*
 
        
 
@@ -180,36 +181,50 @@ int main()
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window)
 {
+    double x, y;
+    glfwGetCursorPos(window, &x, &y);
+    rotX = x/screenX;
+    rotY = y/screenY;
+
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        speed += 3;
+        speed = 30;
+        camX += fpsTime * speed * sin(rotX) * cos(rotY);
+        camY -= fpsTime * speed * sin(rotY);
+        camZ += fpsTime * speed * cos(rotX) * cos(rotY);
     }
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        speed -= 3;
+        speed = -30;
+        camX += fpsTime * speed * sin(rotX) * cos(rotY);
+        camY -= fpsTime * speed * sin(rotY);
+        camZ += fpsTime * speed * cos(rotX) * cos(rotY);
     }
 
-    camX += timer * speed * sin(rotX) * cos(rotY);
-    camY -= timer * speed * sin(rotY);
-    camZ += timer * speed * cos(rotX) * cos(rotY);
-    speed *= 0.92 * (timer / timer);
-    
-    
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        rotX -= timer;
+    {
+        speed = -30;
+        camX += fpsTime * speed * sin(rotX + PI/2);
+        camZ += fpsTime * speed * cos(rotX + PI/2);
+    }
 
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        rotX += timer;
+    {
+        speed = 30;
+        camX += fpsTime * speed * sin(rotX + PI/2);
+        camZ += fpsTime * speed * cos(rotX + PI/2);
+    }
 
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-        rotY -= timer;
-
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-        rotY += timer;
-
+    if (!glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS)
+    {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
+    else {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
     {
         std::cout << "X:" << camX << std::endl;
@@ -218,6 +233,7 @@ void processInput(GLFWwindow* window)
         std::cout << "rotationX:" << rotX << std::endl;    
         std::cout << "rotationY:" << rotY << std::endl;    
     }
+    speed = 0;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -230,26 +246,34 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     screenX = width;screenY = height;
 }
 
-void getTime()
+bool Vsync(float frames)
 {
     timeNow2 = glfwGetTime();
-    float elapsedtime = timeNow2 - timeNow;
+    ElapsedTime = timeNow2 - timeNow;
     timeNow = timeNow2;
-    timer = elapsedtime;
-    timerguy += elapsedtime;
-
+    Vsyncclock += ElapsedTime;
+    if (Vsyncclock > (1.0 / frames))
+    {
+        Vsyncclock = 0;
+        return true;
+    }
+    return false;
 }
 
 void setTitle(float Dspeed, GLFWwindow* window)
 {
+    fps2 = glfwGetTime();
+    fpsTime = fps2 - fps1;
+    fps1 = fps2;
+    fpsclock += fpsTime;
     //will set the fps counter to 1/timerguy
-    if (Dspeed < timerguy) {
-        int fps = 1 / timer;
-        timerguy = 0;
+    if (Dspeed < fpsclock) {
+        int fps = 1 / fpsTime;
+        fpsclock = 0;
         std::stringstream ss;
         ss << fps;
         std::string temp = ss.str();
-        std::string temp2 = "GLSL/C++ (GPU) -FPS:" + temp;
+        std::string temp2 = "OpenGL project -FPS:" + temp;
         char* FPS = (char*)temp2.c_str();
         glfwSetWindowTitle(window, FPS);
     }

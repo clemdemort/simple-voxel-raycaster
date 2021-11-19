@@ -86,9 +86,17 @@ vec3 rotate3d(vec3 v, float a, float b) {
 	return v*rotationA*rotationB;	
 }
 
+void cursor(vec3 color)
+{
+	float ratio =  iResolution.y / iResolution.x;
+	float d = distance (vec2(FragCoord.x/ratio,FragCoord.y),vec2(0,0));
+	if (d < 0.01 && d > 0.005)
+		FragColor.xyz = vec3(1-color.x,1-color.y,1-color.z);
+}
+
 void main()
 {
-	vec2 screenPos = (FragCoord.xy / vec2(iResolution.x/iResolution.y,1.));
+	vec2 screenPos = (FragCoord.xy);
 	vec3 cameraDir = vec3(0.0, 0.0, 0.8);
 	vec3 cameraPlaneU = vec3(1.0, 0.0, 0.0);
 	vec3 cameraPlaneV = vec3(0.0, 1.0, 0.0) * iResolution.y / iResolution.x;
@@ -138,7 +146,7 @@ void main()
 			}	
 		    if(mapPos.x > 0 && mapPos.y > 0 && mapPos.z > 0 && mapPos.x <= voxellist.x-1 && mapPos.y <= voxellist.y-1 && mapPos.z <= voxellist.z-1)
 			{
-				//color += vec3(0.001); //this is for debbuging
+				color += vec3(0.001); //this is for debbuging
 				
 				if(getVoxel(mapPos).w < 0.5f){touched = true;}
 			}
@@ -157,12 +165,7 @@ void main()
 		color *= vec3(0.75);
 	}
 
-	const mat3 RGBtoCIEmat = mat3(0.412453, 0.212671, 0.019334,
-                              0.357580, 0.715160, 0.119193,
-                              0.180423, 0.072169, 0.950227);
-
-	vec3 cieColor = color * RGBtoCIEmat;
-
 	FragColor.xyz = color;
+	cursor(color);
 	dither(2);
 }
