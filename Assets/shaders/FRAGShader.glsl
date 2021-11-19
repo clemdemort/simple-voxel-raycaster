@@ -14,11 +14,11 @@ uniform float ElapsedTime;
 uniform vec2 Mouse;
 uniform vec3 CameraPos;
 uniform vec2 CameraRot;
-uniform vec3 cameraDir;
+uniform vec3 CameraDir;
 uniform vec2 iResolution;         //twitter moment
 uniform vec2 Screen;
 uniform vec3 voxellist;
-const int MAX_RAY_STEPS = 200;
+const int MAX_RAY_STEPS = 300;
 //here is my voxel data please be nice, it's very sensitive
 layout (std430, binding=3) buffer shader_data
 { 
@@ -67,14 +67,36 @@ vec2 rotate2d(vec2 v, float a) {
 	return vec2(v.x * cosA - v.y * sinA, v.y * cosA + v.x * sinA);	
 }
 
+vec3 rotate3d(vec3 v, float a, float b) {
+	
+	float sinA = sin(a);
+	float cosA = cos(a);
+	float sinB = sin(b);
+	float cosB = cos(b);
+	mat3 rotationA = mat3(
+	1               ,  0            ,    0                  ,
+    0               ,  cosA         ,    -sinA              ,
+    0               ,  sinA         ,    cosA	
+	);
+	mat3 rotationB = mat3(
+	cosB               ,  0                ,    sinB      ,
+    0                      ,  1                ,    0             ,
+    -sinB              ,  0                ,    cosB	
+	);
+	return v*rotationA*rotationB;	
+}
+
 void main()
 {
 	vec2 screenPos = (FragCoord.xy / vec2(iResolution.x/iResolution.y,1.));
+	vec3 cameraDir = vec3(0.0, 0.0, 0.8);
 	vec3 cameraPlaneU = vec3(1.0, 0.0, 0.0);
 	vec3 cameraPlaneV = vec3(0.0, 1.0, 0.0) * iResolution.y / iResolution.x;
 	vec3 rayDir = cameraDir + screenPos.x * cameraPlaneU + screenPos.y * cameraPlaneV;
 	vec3 rayPos = CameraPos;
 	
+	rayDir = rotate3d(rayDir,CameraRot.y,CameraRot.x);
+
 	ivec3 mapPos = ivec3(floor(rayPos + 0.));
 
 	vec3 deltaDist = abs(vec3(length(rayDir)) / rayDir);
@@ -83,11 +105,14 @@ void main()
 
 	vec3 sideDist = (sign(rayDir) * (vec3(mapPos) - rayPos) + (sign(rayDir) * 0.5) + 0.5) * deltaDist; 
 	
+    vec3 color;
+
 	bvec3 mask;
 	bool touched = false;
-	for (int i = 0; i < MAX_RAY_STEPS; i++) {
-		if (touched == false){
-			if (sideDist.x < sideDist.y) {
+	int i;
+	while(touched == false && i < MAX_RAY_STEPS)
+	{
+		if (sideDist.x < sideDist.y) {
 				if (sideDist.x < sideDist.z) {
 					sideDist.x += deltaDist.x;
 					mapPos.x += rayStep.x;
@@ -111,12 +136,16 @@ void main()
 					mask = bvec3(false, false, true);
 				}
 			}	
-		    if(mapPos.x > 0 && mapPos.y > 0 && mapPos.z > 0 && mapPos.x <= voxellist.x-1 && mapPos.y <= voxellist.y-1 && mapPos.z <= voxellist.z-1 && getVoxel(mapPos).w < 0.5f)
-				{touched = true;}
-        }
+		    if(mapPos.x > 0 && mapPos.y > 0 && mapPos.z > 0 && mapPos.x <= voxellist.x-1 && mapPos.y <= voxellist.y-1 && mapPos.z <= voxellist.z-1)
+			{
+				//color += vec3(0.001); //this is for debbuging
+				
+				if(getVoxel(mapPos).w < 0.5f){touched = true;}
+			}
+		i++;
 	}
 	
-    vec3 color;
+	
     if(touched == true){color = getVoxel(mapPos).xyz;}
 	if (mask.x) {
 		color *= vec3(0.5);
