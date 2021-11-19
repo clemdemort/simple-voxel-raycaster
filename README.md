@@ -30,9 +30,5 @@ PS:
  
  KNOWN BUGS:
 
-  -terrible warping(90% fixed at this point, very few minor changes have to be made in order for it to work properly)
-
-  -setting your window too large will stretch everything, i change the fov depending on the window width to height ratio for a lack of a better alternative
-
- (if you find some more please tell me)
+ (if you find some please tell me)
 
