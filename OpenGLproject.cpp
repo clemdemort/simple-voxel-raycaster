@@ -13,8 +13,8 @@ void getTime();
 void setTitle(float Dspeed, GLFWwindow* window);
 
 // settings
-const unsigned int SCR_WIDTH = 600;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 700;
+const unsigned int SCR_HEIGHT = 700;
 int screenX = SCR_WIDTH;
 int screenY = SCR_HEIGHT;
 float PI = 3.142857;
@@ -88,8 +88,8 @@ int main()
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    //this is what my code is currently doing(not voxels YET) so it's using the array to color pixels on the screen
-    const int pwidth = 100; const int pheight = 100; const int pdepth = 100;
+    //this is a my voxel world specifications
+    const int pwidth = 200; const int pheight = 200; const int pdepth = 200;
     unsigned int* voxlptr = new unsigned int[pwidth * pheight * pdepth * 1];      //4 at the end represents the vec4 for colour
 
     for (int i = 0; i < pwidth; i++)     // a quick way to populate the scene
@@ -97,19 +97,15 @@ int main()
             for (int k = 0; k < pdepth; k++)
             {
                 unsigned int t = -1;
-                if (sqrt((50 - i) * (50 - i) + (50 - j) * (50 - j) + (50 - k) * (50 - k)) < 50)
+                float condition = sqrt((100 - i) * (100 - i) + (100 - j) * (100 - j) + (100 - k) * (100 - k)) + 2 * sin(k / 5.0) + 2 * sin(j / 5.0) + 2 * sin(i / 5.0);
+                if ( condition < 90 && condition > 60)
                 {   
-                    t = 25;
+                    t = 25;     //sets the voxel to visible
                 }
                 int r = rand() % 10;
-                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin(i / 12.8))))) + (256 * 256 * int(128 * (1. + (sin(j / 12.8))))) + (256 * int(128 * (1. + (cos(k / 12.8))))) + (t)); //256^1
+                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin(i / 24.6))))) + (256 * 256 * int(128 * (1. + (sin(j / 24.6))))) + (256 * int(128 * (1. + (cos(k / 24.6))))) + (t)); //256^1
                 unsigned int col = voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)];
 
-                /*unsigned int R = (col / unsigned int(256 * 256 * 256));
-                unsigned int G = ((col - (R * (256 * 256 * 256))) / (256 * 256));
-                unsigned int B = ((col - (R * (256 * 256 * 256) + (G * 256 * 256))) / (256));
-                unsigned int A = ((col - (R * (256 * 256 * 256) + (G * 256 * 256) + (B * 256))));
-                */
             }
 
     //this is how i transfer the contents of my array to my shader
@@ -146,8 +142,7 @@ int main()
             ourShader.setFloat("iTime", glfwGetTime());
             ourShader.setFloat("ElapsedTime", timer);
             ourShader.setV3Float("CameraPos", camX, camY, camZ);
-            ourShader.setV3Float("cameraDir", sin(rotX) * cos(rotY) , sin(rotY), cos(rotX) * cos(rotY));
-            ourShader.setV3Float("CameraRot", rotX, rotY, rotZ);
+            ourShader.setV2Float("CameraRot", rotX, rotY);
             ourShader.setV2Float("iResolution", (float)screenX, (float)screenY);
             ourShader.setV2Float("Screen", screenX,screenY);
             
@@ -198,7 +193,7 @@ void processInput(GLFWwindow* window)
     }
 
     camX += timer * speed * sin(rotX) * cos(rotY);
-    camY += timer * speed * sin(rotY);
+    camY -= timer * speed * sin(rotY);
     camZ += timer * speed * cos(rotX) * cos(rotY);
     speed *= 0.92 * (timer / timer);
     
@@ -210,10 +205,10 @@ void processInput(GLFWwindow* window)
         rotX += timer;
 
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-        rotY += timer;
+        rotY -= timer;
 
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-        rotY -= timer;
+        rotY += timer;
 
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
     {
