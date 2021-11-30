@@ -4,13 +4,13 @@
 #include <glm/glm/gtc/type_ptr.hpp>
 #include <sstream>
 #include "shader.h"
+#include "TimeSync.h"
 #include <memory>
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 void setTitle(float Dspeed, GLFWwindow* window);
-bool Vsync(float frames);
 
 // settings
 const unsigned int SCR_WIDTH = 700;
@@ -18,15 +18,22 @@ const unsigned int SCR_HEIGHT = 700;
 int screenX = SCR_WIDTH;
 int screenY = SCR_HEIGHT;
 float PI = 3.142857;
-float speed;
+float speed;float latspeed;
+//time variables
+//--------------
+float iTime;
+float fps1;
+float fps2;
+float fpsclock;
+float fpsTime;
 
-float timeNow = 0; float timeNow2 = glfwGetTime(); float ElapsedTime; float Vsyncclock;   //this is the time it will take for the shaders to be displayed
-float fpsclock = -0.5;  float fps1; float fps2;  float fpsTime;   //this is the time it will take for fps to be displayed
-
-
+//initialise the camera position
+//------------------------------
 float camX = 20, camY = 40, camZ = 20, rotX = 0, rotY = 0, rotZ = 0;
+
 int main()
 {
+    
     // glfw: initialize and configure
     // ------------------------------
     glfwInit();
@@ -40,7 +47,7 @@ int main()
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "OpenGL shading project", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Opengl project by clemdemort", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -90,46 +97,78 @@ int main()
     glEnableVertexAttribArray(1);
 
     //this is a my voxel world specifications
-    const int pwidth = 200; const int pheight = 200; const int pdepth = 200;
+    const int pwidth = 64; const int pheight = 64; const int pdepth = 64;
     unsigned int* voxlptr = new unsigned int[pwidth * pheight * pdepth * 1];      //4 at the end represents the vec4 for colour
 
     for (int i = 0; i < pwidth; i++)     // a quick way to populate the scene
         for (int j = 0; j < pheight; j++)
             for (int k = 0; k < pdepth; k++)
             {
-                unsigned int t = -1;
+                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(1)) + (256 * 256 * int(1)) + (256 * int(1)) + (-1));
                 //this is the equation for a funky sphere
-                float condition = sqrt((100 - i) * (100 - i) + (100 - j) * (100 - j) + (100 - k) * (100 - k)) + 3 * cos((k + i) / 5.0) + 3 * sin((j + k) / 5.0) + 3 * sin((i + j) / 5.0);
-                
-                if (condition < 90 && condition > 80)
+                float condition = sqrt((32 - i) * (32 - i) + (32 - j) * (32 - j) + (32 - k) * (32 - k)) + 3 * cos((i + j) / 5.0) + 3 * cos((i + k) / 5.0) + 3 * cos((k + j) / 5.0);
+                //float condition = rand() % 100;
+                if (condition < 30 && condition > 26)
                 {   
-                    t = 25;     //sets the voxel to visible
+                    voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin(i / 24.6))))) + (256 * 256 * int(128 * (1. + (sin(j / 24.6))))) + (256 * int(128 * (1. + (cos(k / 24.6))))) + (25)); //256^1
                 }
                 int r = rand() % 10;
-                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin(i / 24.6))))) + (256 * 256 * int(128 * (1. + (sin(j / 24.6))))) + (256 * int(128 * (1. + (cos(k / 24.6))))) + (t)); //256^1
                 unsigned int col = voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)];
 
             }
 
-    //this is how i transfer the contents of my array to my shader
-    //------------------------------------------------------------
-    int arrSize = (4 * pwidth * pheight * pdepth);
-    GLuint ssbo = 0;
-    glGenBuffers(1, &ssbo);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, arrSize, voxlptr, GL_DYNAMIC_COPY);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbo);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-    GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-    memcpy(p, voxlptr, arrSize);
+    TimeSync Vsync; //video sync
+    TimeSync Msync; //map sync
 
+    
     // render loop
     // -----------
+    GLuint ssbo = 0;    //declaring my SSBO (has to be done somewhere...)
     while (!glfwWindowShouldClose(window))
     {
-        if (Vsync(60))
+        iTime = glfwGetTime()*15;
+        if (Msync.Sync(30))
         {
-            setTitle(0.25,window);
+            //THIS LOOP IS MEANT FOR THE MAP UPDATE AND THE MAP UPDATES ONLY FUTURE ME PLEASE DONT SCREW IT UP!!!
+            //collecting el garbage
+            //---------------------
+            glDeleteBuffers(1, &ssbo);
+            ssbo = 0;
+
+            //for testing purposes this is updating the map dynamically every 30th of a second for now this works more than fine but soon i'll have to implement chunking to go alongside it.
+            //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+            for (int i = 0; i < pwidth; i++)
+                for (int j = 0; j < pheight; j++)
+                    for (int k = 0; k < pdepth; k++)
+                    {
+                        voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(1)) + (256 * 256 * int(1)) + (256 * int(1)) + (-1));
+                        //this is the equation for a funky sphere
+                        float condition = sqrt((32 - i) * (32 - i) + (32 - j) * (32 - j) + (32 - k) * (32 - k)) + 1.5 * sin((i + j + iTime) / 5.0) + 1.5 * cos((i + k + iTime) / 5.0) + 1.5 * cos((k + j + iTime) / 5.0);
+                        if (condition < 28 && condition > 26)
+                        {   //by adding the time variable in the equation we get a shape influenced by time
+                            voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin((i + iTime) / 24.6))))) + (256 * 256 * int(128 * (1. + (sin((j + iTime) / 24.6))))) + (256 * int(128 * (1. + (cos((k + iTime) / 24.6))))) + (25)); //256^1
+                        }
+
+                    }
+
+            
+            //this is how i transfer the contents of my array to my shader
+            //------------------------------------------------------------
+            int arrSize = (4 * pwidth * pheight * pdepth);
+            glGenBuffers(1, &ssbo);
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+            glBufferData(GL_SHADER_STORAGE_BUFFER, arrSize, voxlptr, GL_DYNAMIC_COPY);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbo);
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+            GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+            memcpy(p, voxlptr, arrSize);
+            //------------------------------------------------------------
+        }
+        if (Vsync.Sync(60))
+        {   
+            //this loop is meant for anything that has to be updated at the same time as the screen(60 times a second)
+            
+            setTitle(0.25,window);//this is a bad function, it will change soon(tm)
             
             // input
             // -----
@@ -141,7 +180,7 @@ int main()
             ourShader.setV2Float("Mouse", (float)(x - (screenX / 2)) * (1.0f / (screenX / 2)), (float)(y - (screenY / 2)) * (-1.0f / (screenY / 2)));
 
             ourShader.setV3Float("voxellist", (float)pwidth, (float)pheight, (float)pdepth);
-            ourShader.setFloat("iTime", glfwGetTime());
+            ourShader.setFloat("iTime", iTime);
             ourShader.setFloat("ElapsedTime", fpsTime);
             ourShader.setV3Float("CameraPos", camX, camY, camZ);
             ourShader.setV2Float("CameraRot", rotX, rotY);
@@ -161,10 +200,12 @@ int main()
             // -------------------------------------------------------------------------------
             glfwSwapBuffers(window);
             glfwPollEvents();
+            
         }
+
     }
 
-    // optional: de-allocate all resources once they've outlived their purpose:<
+    // de-allocate all resources once they've outlived their purpose bye bye!
     // ------------------------------------------------------------------------
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
@@ -191,32 +232,48 @@ void processInput(GLFWwindow* window)
     
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        speed = 30;
-        camX += fpsTime * speed * sin(rotX) * cos(rotY);
-        camY -= fpsTime * speed * sin(rotY);
-        camZ += fpsTime * speed * cos(rotX) * cos(rotY);
+        float force = 30;
+        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+            force *= force/2.0f;
+        speed += force * fpsTime;
     }
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        speed = -30;
-        camX += fpsTime * speed * sin(rotX) * cos(rotY);
-        camY -= fpsTime * speed * sin(rotY);
-        camZ += fpsTime * speed * cos(rotX) * cos(rotY);
+        float force = 30;
+        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+            force *= force/2.0f;
+        speed += -force * fpsTime;
     }
+    
+    camX += fpsTime * speed * sin(rotX) * cos(rotY);
+    camY -= fpsTime * speed * sin(rotY);
+    camZ += fpsTime * speed * cos(rotX) * cos(rotY);
 
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        speed = -30;
-        camX += fpsTime * speed * sin(rotX + PI/2);
-        camZ += fpsTime * speed * cos(rotX + PI/2);
+        float force = 30;
+        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+            force *= force / 2.0f;
+        latspeed -= force * fpsTime;
     }
 
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        speed = 30;
-        camX += fpsTime * speed * sin(rotX + PI/2);
-        camZ += fpsTime * speed * cos(rotX + PI/2);
+        float force = 30;
+        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+            force *= force/2.0f;
+        latspeed += force * fpsTime;
     }
+
+    camX += fpsTime * latspeed * sin(rotX + PI / 2);
+    camZ += fpsTime * latspeed * cos(rotX + PI / 2);
+
+    
+        
+    
+    speed -= fpsTime * 2.0 * speed;
+    latspeed -= fpsTime * 2.0 * latspeed;
+    
 
     if (!glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS)
     {
@@ -233,7 +290,6 @@ void processInput(GLFWwindow* window)
         std::cout << "rotationX:" << rotX << std::endl;    
         std::cout << "rotationY:" << rotY << std::endl;    
     }
-    speed = 0;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -246,34 +302,21 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     screenX = width;screenY = height;
 }
 
-bool Vsync(float frames)
-{
-    timeNow2 = glfwGetTime();
-    ElapsedTime = timeNow2 - timeNow;
-    timeNow = timeNow2;
-    Vsyncclock += ElapsedTime;
-    if (Vsyncclock > (1.0 / frames))
-    {
-        Vsyncclock = 0;
-        return true;
-    }
-    return false;
-}
-
 void setTitle(float Dspeed, GLFWwindow* window)
 {
+    //this function is sadly no longer accurate so it'll have to go sadly...
     fps2 = glfwGetTime();
     fpsTime = fps2 - fps1;
     fps1 = fps2;
     fpsclock += fpsTime;
-    //will set the fps counter to 1/timerguy
+    //will set the fps counter to 1/fpsclock
     if (Dspeed < fpsclock) {
         int fps = 1 / fpsTime;
         fpsclock = 0;
         std::stringstream ss;
         ss << fps;
         std::string temp = ss.str();
-        std::string temp2 = "OpenGL project -FPS:" + temp;
+        std::string temp2 = "Simple Voxel Raycaster -FPS:" + temp;
         char* FPS = (char*)temp2.c_str();
         glfwSetWindowTitle(window, FPS);
     }
