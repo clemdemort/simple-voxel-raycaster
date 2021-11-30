@@ -26,6 +26,8 @@ controls:
   S: backwards
 
   D: strafe right
+  
+  LEFT_SHIFT: Boost(any direction)
 
   TAB: free mouse
   
