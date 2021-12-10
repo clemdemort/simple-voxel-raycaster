@@ -27,7 +27,7 @@ float fps2;
 float fpsclock;
 float fpsTime;
 
-//initialise the camera position
+//initialise the camera positionnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 //------------------------------
 float camX = 20, camY = 40, camZ = 20, rotX = 0, rotY = 0, rotZ = 0;
 
