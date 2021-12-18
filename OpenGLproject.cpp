@@ -22,12 +22,11 @@ float speed;float latspeed;
 //time variables
 //--------------
 float iTime;
-float fps1;
-float fps2;
-float fpsclock;
-float fpsTime;
+TimeSync Vsync; //video sync
+TimeSync Msync; //map sync
+TimeSync Titlesync; //map sync
 
-//initialise the camera positionnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+//initialise the camera position
 //------------------------------
 float camX = 20, camY = 40, camZ = 20, rotX = 0, rotY = 0, rotZ = 0;
 
@@ -104,30 +103,32 @@ int main()
         for (int j = 0; j < pheight; j++)
             for (int k = 0; k < pdepth; k++)
             {
-                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(1)) + (256 * 256 * int(1)) + (256 * int(1)) + (-1));
+                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(1)) + (256 * 256 * int(1)) + (256 * int(1)) + (0/*opacity is 0 so it's air basically*/));
                 //this is the equation for a funky sphere
                 float condition = sqrt((32 - i) * (32 - i) + (32 - j) * (32 - j) + (32 - k) * (32 - k)) + 3 * cos((i + j) / 5.0) + 3 * cos((i + k) / 5.0) + 3 * cos((k + j) / 5.0);
                 //float condition = rand() % 100;
                 if (condition < 30 && condition > 26)
                 {   
-                    voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin(i / 24.6))))) + (256 * 256 * int(128 * (1. + (sin(j / 24.6))))) + (256 * int(128 * (1. + (cos(k / 24.6))))) + (25)); //256^1
+                    voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin(i / 24.6))))) + (256 * 256 * int(128 * (1. + (sin(j / 24.6))))) + (256 * int(128 * (1. + (cos(k / 24.6))))) + (rand()%128)); //256^1
                 }
                 int r = rand() % 10;
                 unsigned int col = voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)];
 
             }
 
-    TimeSync Vsync; //video sync
-    TimeSync Msync; //map sync
 
     
     // render loop
     // -----------
     GLuint ssbo = 0;    //declaring my SSBO (has to be done somewhere...)
+
+    
+
     while (!glfwWindowShouldClose(window))
     {
-        iTime = glfwGetTime()*15;
-        if (Msync.Sync(30))
+        iTime = glfwGetTime()*1;
+        
+        if (Msync.Sync(20))
         {
             //THIS LOOP IS MEANT FOR THE MAP UPDATE AND THE MAP UPDATES ONLY FUTURE ME PLEASE DONT SCREW IT UP!!!
             //collecting el garbage
@@ -141,17 +142,22 @@ int main()
                 for (int j = 0; j < pheight; j++)
                     for (int k = 0; k < pdepth; k++)
                     {
-                        voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(1)) + (256 * 256 * int(1)) + (256 * int(1)) + (-1));
+                        voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(1)) + (256 * 256 * int(1)) + (256 * int(1)) + (0/*opacity is 0 so it's air basically*/));
                         //this is the equation for a funky sphere
-                        float condition = sqrt((32 - i) * (32 - i) + (32 - j) * (32 - j) + (32 - k) * (32 - k)) + 1.5 * sin((i + j + iTime) / 5.0) + 1.5 * cos((i + k + iTime) / 5.0) + 1.5 * cos((k + j + iTime) / 5.0);
-                        if (condition < 28 && condition > 26)
+                        float condition = sqrt((32 - i) * (32 - i) + (32 - j) * (32 - j) + (32 - k) * (32 - k)) + 1.5 * sin((i + j + k + iTime) / 5.0) + 1.5 * cos((i + k + iTime) / 5.0) + 1.5 * cos((k + j + iTime) / 5.0);
+                        if (condition < 28 && condition > 22)
                         {   //by adding the time variable in the equation we get a shape influenced by time
-                            voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin((i + iTime) / 24.6))))) + (256 * 256 * int(128 * (1. + (sin((j + iTime) / 24.6))))) + (256 * int(128 * (1. + (cos((k + iTime) / 24.6))))) + (25)); //256^1
+                            voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin((i + (iTime * 1)) / 24.6))))) + (256 * 256 * int(128 * (1. + (sin((j + (iTime * 1)) / 24.6))))) + (256 * int(128)) + (20 * (1 + sin(((iTime * 5) + i) / 25.0)))); //256^1
                         }
+                        if (condition < 15)
+                        {   //by adding the time variable in the equation we get a shape influenced by time
+                            voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = unsigned int((256 * 256 * 256 * int(228)) + (256 * 256 * int(228)) + (256 * int(228)) + (255)); //256^1
+                        }
+
 
                     }
 
-            
+
             //this is how i transfer the contents of my array to my shader
             //------------------------------------------------------------
             int arrSize = (4 * pwidth * pheight * pdepth);
@@ -166,9 +172,18 @@ int main()
         }
         if (Vsync.Sync(60))
         {   
-            //this loop is meant for anything that has to be updated at the same time as the screen(60 times a second)
             
-            setTitle(0.25,window);//this is a bad function, it will change soon(tm)
+            //this loop is meant for anything that has to be updated at the same time as the screen(60 times a second)
+            if (Titlesync.Sync(4)) {
+                //below you can set the window title
+                std::string title = "Voxel Raycaster";
+                std::stringstream ss;
+                ss << int(1.0 / Vsync.ElapsedTime);
+                std::string temp = ss.str();
+                std::string temp2 = title + " -FPS:" + temp;
+                char* FPS = (char*)temp2.c_str();
+                glfwSetWindowTitle(window, FPS);
+            }
             
             // input
             // -----
@@ -181,9 +196,9 @@ int main()
 
             ourShader.setV3Float("voxellist", (float)pwidth, (float)pheight, (float)pdepth);
             ourShader.setFloat("iTime", iTime);
-            ourShader.setFloat("ElapsedTime", fpsTime);
+            ourShader.setFloat("ElapsedTime", Vsync.ElapsedTime);
             ourShader.setV3Float("CameraPos", camX, camY, camZ);
-            ourShader.setV2Float("CameraRot", rotX, rotY);
+            ourShader.setV3Float("CameraRot", rotX, rotY,rotZ);
             ourShader.setV2Float("iResolution", (float)screenX, (float)screenY);
             ourShader.setV2Float("Screen", screenX,screenY);
             
@@ -235,26 +250,27 @@ void processInput(GLFWwindow* window)
         float force = 30;
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
             force *= force/2.0f;
-        speed += force * fpsTime;
+        speed += force * Vsync.ElapsedTime;
     }
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
         float force = 30;
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
             force *= force/2.0f;
-        speed += -force * fpsTime;
+        speed += -force * Vsync.ElapsedTime;
     }
     
-    camX += fpsTime * speed * sin(rotX) * cos(rotY);
-    camY -= fpsTime * speed * sin(rotY);
-    camZ += fpsTime * speed * cos(rotX) * cos(rotY);
+    camX += Vsync.ElapsedTime * speed * sin(rotX) * cos(rotY);
+    camY -= Vsync.ElapsedTime * speed * sin(rotY);
+    camZ += Vsync.ElapsedTime * speed * cos(rotX) * cos(rotY);
 
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
         float force = 30;
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
             force *= force / 2.0f;
-        latspeed -= force * fpsTime;
+        latspeed -= force * Vsync.ElapsedTime;
+        
     }
 
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
@@ -262,17 +278,16 @@ void processInput(GLFWwindow* window)
         float force = 30;
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
             force *= force/2.0f;
-        latspeed += force * fpsTime;
+        latspeed += force * Vsync.ElapsedTime;
     }
+    if(abs(latspeed) < 10)rotZ = -latspeed / 70;
 
-    camX += fpsTime * latspeed * sin(rotX + PI / 2);
-    camZ += fpsTime * latspeed * cos(rotX + PI / 2);
+    camX += Vsync.ElapsedTime * latspeed * sin(rotX + PI / 2);
+    camZ += Vsync.ElapsedTime * latspeed * cos(rotX + PI / 2);
 
     
-        
-    
-    speed -= fpsTime * 2.0 * speed;
-    latspeed -= fpsTime * 2.0 * latspeed;
+    speed -= Vsync.ElapsedTime * 2.0 * speed;
+    latspeed -= Vsync.ElapsedTime * 2.0 * latspeed;
     
 
     if (!glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS)
@@ -300,24 +315,4 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
     screenX = width;screenY = height;
-}
-
-void setTitle(float Dspeed, GLFWwindow* window)
-{
-    //this function is sadly no longer accurate so it'll have to go sadly...
-    fps2 = glfwGetTime();
-    fpsTime = fps2 - fps1;
-    fps1 = fps2;
-    fpsclock += fpsTime;
-    //will set the fps counter to 1/fpsclock
-    if (Dspeed < fpsclock) {
-        int fps = 1 / fpsTime;
-        fpsclock = 0;
-        std::stringstream ss;
-        ss << fps;
-        std::string temp = ss.str();
-        std::string temp2 = "Simple Voxel Raycaster -FPS:" + temp;
-        char* FPS = (char*)temp2.c_str();
-        glfwSetWindowTitle(window, FPS);
-    }
 }
