@@ -97,24 +97,7 @@ int main()
 
     //this is a my voxel world specifications
     const int pwidth = 64; const int pheight = 64; const int pdepth = 64;
-    unsigned int* voxlptr = new unsigned int[pwidth * pheight * pdepth * 1];      //4 at the end represents the vec4 for colour
-
-    for (int i = 0; i < pwidth; i++)     // a quick way to populate the scene
-        for (int j = 0; j < pheight; j++)
-            for (int k = 0; k < pdepth; k++)
-            {
-                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(1)) + (256 * 256 * int(1)) + (256 * int(1)) + (0/*opacity is 0 so it's air basically*/));
-                //this is the equation for a funky sphere
-                float condition = sqrt((32 - i) * (32 - i) + (32 - j) * (32 - j) + (32 - k) * (32 - k)) + 3 * cos((i + j) / 5.0) + 3 * cos((i + k) / 5.0) + 3 * cos((k + j) / 5.0);
-                //float condition = rand() % 100;
-                if (condition < 30 && condition > 26)
-                {   
-                    voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin(i / 24.6))))) + (256 * 256 * int(128 * (1. + (sin(j / 24.6))))) + (256 * int(128 * (1. + (cos(k / 24.6))))) + (rand()%128)); //256^1
-                }
-                int r = rand() % 10;
-                unsigned int col = voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)];
-
-            }
+    unsigned int* voxlptr = new unsigned int[pwidth * pheight * pdepth];
 
 
     
