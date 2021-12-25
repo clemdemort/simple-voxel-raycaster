@@ -1,7 +1,6 @@
 //----------Made by clemdemort----------//
 #version 430 core
 out vec4 FragColor;
-uniform int fov;
 in vec3 ourColor;
 in vec2 FragCoord;
 
@@ -10,20 +9,20 @@ uniform vec3 rectRayUPLEFT;
 uniform vec3 rectRayDOWNLEFT;
 uniform vec3 rectRayDOWNRIGHT;
 uniform float iTime;
+uniform float FOV;
 uniform float ElapsedTime;
 uniform vec2 Mouse;
 uniform vec3 CameraPos;
 uniform vec3 CameraRot;
 uniform vec3 CameraDir;
-uniform vec2 iResolution;         //twitter moment
+uniform vec2 iResolution;
 uniform vec2 Screen;
 uniform vec3 voxellist;
 const int MAX_RAY_STEPS = 500;
-//here is my voxel data please be nice, it's very sensitive
-layout (std430, binding=3) buffer shader_data
-{ 
-    uint voxels[];      
-};
+layout(r32ui, binding = 0) uniform uimage3D voxels;
+
+
+
 //the almighty one
 float PI = 3.142857;
 
@@ -31,12 +30,6 @@ float PI = 3.142857;
 void dither(float power){
         FragColor += vec4(0.001*power*cos(FragCoord.y*1000), 0.001*power*sin(FragCoord.y*1000), 0.001*power*cos(FragCoord.x*1000), 0);
         FragColor -= vec4(0.001*power*cos(FragCoord.x*1000), 0.001*power*sin(FragCoord.x*1000), 0.001*power*cos(FragCoord.y*1000), 0);
-}
-
-//the index function used to access an element in the "voxels" array
-int IDX(ivec3 pos){
-    int id = int((pos.z*voxellist.y*voxellist.x) + (pos.y*voxellist.x) + pos.x);
-    return id;
 }
 
 vec4 DeCompressCol(uint col)
@@ -57,7 +50,7 @@ vec4 DeCompressCol(uint col)
 }
 
 vec4 getVoxel(ivec3 c) {
-	return DeCompressCol(voxels[IDX(c)]);
+	return DeCompressCol(imageLoad(voxels,c-1).r);
 }
 
 vec2 rotate2d(vec2 v, float a) {
@@ -96,7 +89,7 @@ void cursor(vec3 color)
 void main()
 {
 	vec2 screenPos = rotate2d(vec2(FragCoord.x,FragCoord.y * (iResolution.y / iResolution.x)),CameraRot.z);
-	vec3 cameraDir = vec3(0.0, 0.0, 0.8);
+	vec3 cameraDir = vec3(0.0, 0.0, (180/FOV)-1);
 	vec3 cameraPlaneU = vec3(1.0, 0.0, 0.0);
 	vec3 cameraPlaneV = vec3(0.0, 1.0, 0.0);
 	vec3 rayDir = cameraDir + screenPos.x * cameraPlaneU + screenPos.y * cameraPlaneV;
@@ -112,7 +105,7 @@ void main()
 
 	vec3 sideDist = (sign(rayDir) * (vec3(mapPos) - rayPos) + (sign(rayDir) * 0.5) + 0.5) * deltaDist; 
 	
-    vec3 BGcolor = vec3(0);	//this is currently black but it can change any colour and still work
+    vec3 BGcolor = vec3(0,0,0.25);	//this is currently black but it can change any colour and still work
     vec4 color = vec4(BGcolor,0);
 
 	bvec3 mask;
@@ -144,9 +137,9 @@ void main()
 					mask = bvec3(false, false, true);
 				}
 			}
-		    if(mapPos.x > 0 && mapPos.y > 0 && mapPos.z > 0 && mapPos.x <= voxellist.x-1 && mapPos.y <= voxellist.y-1 && mapPos.z <= voxellist.z-1)
+		    if(mapPos.x > 0 && mapPos.y > 0 && mapPos.z > 0 && mapPos.x <= voxellist.x && mapPos.y <= voxellist.y && mapPos.z <= voxellist.z)
 			{
-				//BGcolor += vec3(0.0005);
+				BGcolor += vec3(0.0005,0.0005,0.0005);
 				vec4 voxel = getVoxel(mapPos);
 				if(voxel.w >= 0.99){
 					color.xyz = (voxel.xyz*(1-color.w)+color.xyz*(color.w));	//if something is touched average it's colour with the current alpha(color.w)

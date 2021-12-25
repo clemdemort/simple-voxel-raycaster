@@ -2,15 +2,23 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm/glm.hpp>
 #include <glm/glm/gtc/type_ptr.hpp>
+#include <glm/glm/gtc/noise.hpp>
 #include <sstream>
 #include "shader.h"
 #include "TimeSync.h"
+#include "CustomNoise.h"
 #include <memory>
 #include <iostream>
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
-void setTitle(float Dspeed, GLFWwindow* window);
+unsigned int compress(uint8_t R, uint8_t G, uint8_t B, uint8_t A);
+void APIENTRY glDebugOutput(GLenum source,
+    GLenum type,
+    unsigned int id,
+    GLenum severity,
+    GLsizei length,
+    const char* message,
+    const void* userParam);
 
 // settings
 const unsigned int SCR_WIDTH = 700;
@@ -25,6 +33,9 @@ float iTime;
 TimeSync Vsync; //video sync
 TimeSync Msync; //map sync
 TimeSync Titlesync; //map sync
+//noise class
+Noise random;
+Noise smooth;
 
 //initialise the camera position
 //------------------------------
@@ -39,6 +50,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,true);
 
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
@@ -65,6 +77,14 @@ int main()
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
+
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(glDebugOutput, nullptr);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+    int max;
+    glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &max);
+    std::cout << max << "\n";
 
     // build and compile our shader program
     // ------------------------------------
@@ -95,67 +115,96 @@ int main()
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
+    //generating noise
+    random.generate2d(60,60,0, 50);
+    smooth.generate2d(100,100,0, 7);
+
+
     //this is a my voxel world specifications
-    const int pwidth = 64; const int pheight = 64; const int pdepth = 64;
-    unsigned int* voxlptr = new unsigned int[pwidth * pheight * pdepth];
+    const int pwidth = 1000; const int pheight = 115; const int pdepth = 1000;
+    unsigned int *voxlptr = new unsigned int[pwidth * pheight * pdepth];
 
+    GLuint ssbo = 0;    //declaring my texture3D
 
-    
-    // render loop
-    // -----------
-    GLuint ssbo = 0;    //declaring my SSBO (has to be done somewhere...)
-
-    
-
+            //collecting el garbage
+            //---------------------
+    glDeleteBuffers(1, &ssbo);
+    ssbo = 0;
+    int generated = 0;
+    std::cout << " generating the world... \n this may take a while... \n";
+    for (int i = 0; i < pwidth; i++)
+        for (int j = 0; j < pheight; j++)
+            for (int k = 0; k < pdepth; k++)
+            {
+                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i] = compress(0, 0, 0, 0);
+                ////this is the equation for a sphere
+                //float condition = sqrtf(powf(pwidth / 2.0f - i, 2) + powf(pheight / 2.0f - j, 2) + powf(pdepth / 2.0f - k, 2)) + random.Get2D(i/20.0,j/20.0);
+                float condition = j;
+                if (condition < 55)
+                {
+                    voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = compress(10, 40, 120, 20);
+                }
+                if (condition < 2)
+                {
+                    voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = compress(40, 40, 40, 255);
+                }
+                condition = j + 0.3 * random.Get2D(i / 10.0, k / 10.0) - 2 * random.Get2D(i / 50.0, k / 50.0) + 3 * smooth.Get2D(i / 25.0, k / 25.0) + 3 * smooth.Get2D(i / 7.5, k / 7.5);
+                if(condition < 25)
+                {   //by adding the time variable in the equation we get a shape influenced by time
+                    voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = compress(120,175,50, 255);
+                }
+            }
+    std::cout << "world generating done! sending data to the GPU!\n";
+    //this is how i transfer the contents of my array to my shader using a 3D texture
+    //------------------------------------------------------------
+    int arrSize = (4 * pwidth * pheight * pdepth);
+    glGenTextures(1, &ssbo);
+    glBindTexture(GL_TEXTURE_3D, ssbo);
+    glTexStorage3D(GL_TEXTURE_3D,
+        1,             // No mipmaps
+        GL_R32UI,      // Internal format
+        pwidth, pheight, pdepth);
+    glTexSubImage3D(GL_TEXTURE_3D,
+        0,                // Mipmap number
+        0, 0, 0,          // xoffset, yoffset, zoffset
+        pwidth, pheight, pdepth, // width, height, depth
+        GL_RED_INTEGER,         // format
+        GL_UNSIGNED_INT, // type
+        voxlptr);           // pointer to data
+    glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+    //------------------------------------------------------------
+    std::cout << "done! \n";
     while (!glfwWindowShouldClose(window))
     {
         iTime = glfwGetTime()*1;
         
-        if (Msync.Sync(20))
+        if (Msync.Sync(0)) //this is not working
         {
-            //THIS LOOP IS MEANT FOR THE MAP UPDATE AND THE MAP UPDATES ONLY FUTURE ME PLEASE DONT SCREW IT UP!!!
-            //collecting el garbage
-            //---------------------
-            glDeleteBuffers(1, &ssbo);
             ssbo = 0;
-
-            //for testing purposes this is updating the map dynamically every 30th of a second for now this works more than fine but soon i'll have to implement chunking to go alongside it.
+            //int generated = 0;
+            //for testing purposes this is updating the map dynamically every 0th of a second for now this works more than fine but soon i'll have to implement chunking to go alongside it.
             //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            for (int i = 0; i < pwidth; i++)
-                for (int j = 0; j < pheight; j++)
-                    for (int k = 0; k < pdepth; k++)
-                    {
-                        voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i * 1 + (0)] = unsigned int((256 * 256 * 256 * int(1)) + (256 * 256 * int(1)) + (256 * int(1)) + (0/*opacity is 0 so it's air basically*/));
-                        //this is the equation for a funky sphere
-                        float condition = sqrt((32 - i) * (32 - i) + (32 - j) * (32 - j) + (32 - k) * (32 - k)) + 1.5 * sin((i + j + k + iTime) / 5.0) + 1.5 * cos((i + k + iTime) / 5.0) + 1.5 * cos((k + j + iTime) / 5.0);
-                        if (condition < 28 && condition > 22)
-                        {   //by adding the time variable in the equation we get a shape influenced by time
-                            voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = unsigned int((256 * 256 * 256 * int(128 * (1. + (sin((i + (iTime * 1)) / 24.6))))) + (256 * 256 * int(128 * (1. + (sin((j + (iTime * 1)) / 24.6))))) + (256 * int(128)) + (20 * (1 + sin(((iTime * 5) + i) / 25.0)))); //256^1
-                        }
-                        if (condition < 15)
-                        {   //by adding the time variable in the equation we get a shape influenced by time
-                            voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = unsigned int((256 * 256 * 256 * int(228)) + (256 * 256 * int(228)) + (256 * int(228)) + (255)); //256^1
-                        }
+            for(int i = 0; i < 100; i++)
+            {
+                unsigned int r = ((rand() % pdepth) * pwidth * pheight) + ((rand() % pheight) * pwidth) + (rand() % pwidth);
+                voxlptr[r] = compress(rand(), rand(), rand(), rand());
 
-
-                    }
-
+            }
 
             //this is how i transfer the contents of my array to my shader
             //------------------------------------------------------------
-            int arrSize = (4 * pwidth * pheight * pdepth);
-            glGenBuffers(1, &ssbo);
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-            glBufferData(GL_SHADER_STORAGE_BUFFER, arrSize, voxlptr, GL_DYNAMIC_COPY);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbo);
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-            GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-            memcpy(p, voxlptr, arrSize);
+            glTexSubImage3D(GL_TEXTURE_3D,
+                0,                // Mipmap number
+                0, 0, 0,          // xoffset, yoffset, zoffset
+                pwidth, pheight, pdepth, // width, height, depth
+                GL_RED_INTEGER,         // format
+                GL_UNSIGNED_INT, // type
+                voxlptr);           // pointer to data
+            glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
             //------------------------------------------------------------
         }
         if (Vsync.Sync(60))
         {   
-            
             //this loop is meant for anything that has to be updated at the same time as the screen(60 times a second)
             if (Titlesync.Sync(4)) {
                 //below you can set the window title
@@ -171,7 +220,10 @@ int main()
             // input
             // -----
             processInput(window);
-            
+            float FOV = 90; //pretty obscure fonctionallity ;P
+            //use shader
+            ourShader.use();
+
             /*gets cursor position -->*/
             double x,y;
             glfwGetCursorPos(window, &x, &y);
@@ -179,18 +231,24 @@ int main()
 
             ourShader.setV3Float("voxellist", (float)pwidth, (float)pheight, (float)pdepth);
             ourShader.setFloat("iTime", iTime);
+            ourShader.setFloat("FOV", FOV);
             ourShader.setFloat("ElapsedTime", Vsync.ElapsedTime);
             ourShader.setV3Float("CameraPos", camX, camY, camZ);
             ourShader.setV3Float("CameraRot", rotX, rotY,rotZ);
             ourShader.setV2Float("iResolution", (float)screenX, (float)screenY);
             ourShader.setV2Float("Screen", screenX,screenY);
             
-            float FOV = 70; //useless as of yet but ill give it a use in the future *maybe*
 
        
 
             // render the shader
-            ourShader.use();
+            glBindImageTexture(0,
+                ssbo,
+                0,
+                true,
+                0,
+                GL_READ_ONLY,
+                GL_R32UI);
             glBindVertexArray(VAO);
             glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -209,6 +267,8 @@ int main()
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &ssbo);
     delete[] voxlptr;
+    random.destroy();
+    smooth.destroy();
     std::cout << "program ran for: " << glfwGetTime() << " seconds" << std::endl;
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
@@ -298,4 +358,57 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
     screenX = width;screenY = height;
+}
+
+unsigned int compress(uint8_t R, uint8_t G, uint8_t B, uint8_t A)
+{
+    return unsigned int((256 * 256 * 256 * R) + (256 * 256 * G) + (256 * B) + (A));
+}
+
+
+void APIENTRY glDebugOutput(GLenum source,
+    GLenum type,
+    unsigned int id,
+    GLenum severity,
+    GLsizei length,
+    const char* message,
+    const void* userParam)
+{
+    // ignore non-significant error/warning codes
+    if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return;
+
+    std::cout << "---------------" << std::endl;
+    std::cout << "Debug message (" << id << "): " << message << std::endl;
+
+    switch (source)
+    {
+    case GL_DEBUG_SOURCE_API:             std::cout << "Source: API"; break;
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   std::cout << "Source: Window System"; break;
+    case GL_DEBUG_SOURCE_SHADER_COMPILER: std::cout << "Source: Shader Compiler"; break;
+    case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
+    case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
+    case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
+    } std::cout << std::endl;
+
+    switch (type)
+    {
+    case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break;
+    case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
+    case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
+    case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
+    case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
+    case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
+    case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
+    } std::cout << std::endl;
+
+    switch (severity)
+    {
+    case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
+    case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
+    case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
+    case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
+    } std::cout << std::endl;
+    std::cout << std::endl;
 }
