@@ -9,6 +9,9 @@
 #include "CustomNoise.h"
 #include <memory>
 #include <iostream>
+
+//function declaration
+//--------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 unsigned int compress(uint8_t R, uint8_t G, uint8_t B, uint8_t A);
@@ -21,25 +24,31 @@ void APIENTRY glDebugOutput(GLenum source,
     const void* userParam);
 
 // settings
+//---------
 const unsigned int SCR_WIDTH = 700;
 const unsigned int SCR_HEIGHT = 700;
 int screenX = SCR_WIDTH;
 int screenY = SCR_HEIGHT;
 float PI = 3.142857;
 float speed;float latspeed;
+
 //time variables
 //--------------
 float iTime;
 TimeSync Vsync; //video sync
 TimeSync Msync; //map sync
 TimeSync Titlesync; //map sync
+
 //noise class
-Noise random;
-Noise smooth;
+//-----------
+Noise2D random;
+Noise2D smooth;
+Noise1D colour;
+Noise3D caves;
 
 //initialise the camera position
 //------------------------------
-float camX = 20, camY = 40, camZ = 20, rotX = 0, rotY = 0, rotZ = 0;
+float camX = 0, camY = 100, camZ = 0, rotX = 0, rotY = 0, rotZ = 0;
 
 int main()
 {
@@ -115,49 +124,26 @@ int main()
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    //generating noise
-    random.generate2d(60,60,0, 50);
-    smooth.generate2d(100,100,0, 7);
+    //generating noise and random stuff
+    //---------------------------------
+    int seed = pow(20000*glfwGetTime(),10000*glfwGetTime()); //hopefully this will be enough to get a different result every run
+    random.generate(60,60,0, 50, seed);
+    smooth.generate(100,100,0, 7, seed);
+    caves.generate(100,100,100,0, 5, seed);
+    colour.generate(100,0, 255, seed);
+    int waterlevel = rand() % 30 + 5; //for showcase, this will not stay
 
 
     //this is a my voxel world specifications
-    const int pwidth = 1000; const int pheight = 115; const int pdepth = 1000;
+    const int pwidth = max/2; const int pheight = 150; const int pdepth = max/2; //this uses the maximum size a texture can use on a gpu so size may differ from person to person 
     unsigned int *voxlptr = new unsigned int[pwidth * pheight * pdepth];
 
     GLuint ssbo = 0;    //declaring my texture3D
+    glDeleteBuffers(1, &ssbo); //in case it hadn't properly been done before
 
-            //collecting el garbage
-            //---------------------
-    glDeleteBuffers(1, &ssbo);
-    ssbo = 0;
-    int generated = 0;
-    std::cout << " generating the world... \n this may take a while... \n";
-    for (int i = 0; i < pwidth; i++)
-        for (int j = 0; j < pheight; j++)
-            for (int k = 0; k < pdepth; k++)
-            {
-                voxlptr[(k * pwidth * pheight * 1) + (j * pwidth * 1) + i] = compress(0, 0, 0, 0);
-                ////this is the equation for a sphere
-                //float condition = sqrtf(powf(pwidth / 2.0f - i, 2) + powf(pheight / 2.0f - j, 2) + powf(pdepth / 2.0f - k, 2)) + random.Get2D(i/20.0,j/20.0);
-                float condition = j;
-                if (condition < 55)
-                {
-                    voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = compress(10, 40, 120, 20);
-                }
-                if (condition < 2)
-                {
-                    voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = compress(40, 40, 40, 255);
-                }
-                condition = j + 0.3 * random.Get2D(i / 10.0, k / 10.0) - 2 * random.Get2D(i / 50.0, k / 50.0) + 3 * smooth.Get2D(i / 25.0, k / 25.0) + 3 * smooth.Get2D(i / 7.5, k / 7.5);
-                if(condition < 25)
-                {   //by adding the time variable in the equation we get a shape influenced by time
-                    voxlptr[(k * pwidth * pheight) + (j * pwidth) + i] = compress(120,175,50, 255);
-                }
-            }
-    std::cout << "world generating done! sending data to the GPU!\n";
     //this is how i transfer the contents of my array to my shader using a 3D texture
     //------------------------------------------------------------
-    int arrSize = (4 * pwidth * pheight * pdepth);
+    int arrSize = (4 * pwidth * pheight * pdepth); //specifying the memory size of the textures (times 4 because an int is 4 bytes!)
     glGenTextures(1, &ssbo);
     glBindTexture(GL_TEXTURE_3D, ssbo);
     glTexStorage3D(GL_TEXTURE_3D,
@@ -173,34 +159,47 @@ int main()
         voxlptr);           // pointer to data
     glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
     //------------------------------------------------------------
-    std::cout << "done! \n";
+
+    std::cout << "done! \n";   
+    int genx = 0;
+
     while (!glfwWindowShouldClose(window))
     {
         iTime = glfwGetTime()*1;
         
-        if (Msync.Sync(0)) //this is not working
+        if (Msync.Sync(40) && genx < pwidth)
         {
-            ssbo = 0;
-            //int generated = 0;
-            //for testing purposes this is updating the map dynamically every 0th of a second for now this works more than fine but soon i'll have to implement chunking to go alongside it.
-            //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            for(int i = 0; i < 100; i++)
-            {
-                unsigned int r = ((rand() % pdepth) * pwidth * pheight) + ((rand() % pheight) * pwidth) + (rand() % pwidth);
-                voxlptr[r] = compress(rand(), rand(), rand(), rand());
+            genx++;
+                unsigned int *V = new unsigned int[pheight*pdepth];
+            //generates the individual slices of the world
+                for (int j = 0; j < pheight; j++)
+                    for (int k = 0; k < pdepth; k++)
+                    {
 
-            }
+                        V[(k * pheight) + j] = compress(0, 0, 0, 0); //base state is nothing 
+                        
+                        float condition = ((j - smooth.Get(genx / 10.0, k / 10.0) + 0.5 * random.Get(genx / 50.0, k / 50.0)) / (0.6 * smooth.Get(genx / 100.0, k / 100.0))) - 10 - 0.3*smooth.Get(genx / 5.0, k / 5.0);
+                        float color = 125;
+                        
+                        if(j <= waterlevel){ V[(k * pheight) + j] = compress(20, 45, 200, 25); }//to imitate water
+                        if (condition < 20)
+                        {
+                            V[(k * pheight) + j] = compress(1.4*color, 2*color, 0.7*color, 255);
+                        }
+                        if (j == 0 || j - smooth.Get(genx / 5.0, k / 5.0) <= 0) { V[(k * pheight) + j] = compress(color, color, color, 255); }
+                    }
 
-            //this is how i transfer the contents of my array to my shader
-            //------------------------------------------------------------
+            //this is how i transfer the contents of my array to my shader dynamically
+            //------------------------------------------------------------------------
             glTexSubImage3D(GL_TEXTURE_3D,
                 0,                // Mipmap number
-                0, 0, 0,          // xoffset, yoffset, zoffset
-                pwidth, pheight, pdepth, // width, height, depth
+                genx, 0, 0,          // xoffset, yoffset, zoffset
+                1, pheight, pdepth, // width, height, depth
                 GL_RED_INTEGER,         // format
                 GL_UNSIGNED_INT, // type
-                voxlptr);           // pointer to data
+                V);           // pointer to data
             glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+                delete[] V;
             //------------------------------------------------------------
         }
         if (Vsync.Sync(60))
@@ -221,8 +220,6 @@ int main()
             // -----
             processInput(window);
             float FOV = 90; //pretty obscure fonctionallity ;P
-            //use shader
-            ourShader.use();
 
             /*gets cursor position -->*/
             double x,y;
@@ -241,7 +238,8 @@ int main()
 
        
 
-            // render the shader
+            // using the shader and binding the texture
+            ourShader.use();
             glBindImageTexture(0,
                 ssbo,
                 0,
@@ -267,13 +265,15 @@ int main()
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &ssbo);
     delete[] voxlptr;
-    random.destroy();
+    random.destroy(); //destroying the generated noises
     smooth.destroy();
+    colour.destroy();
+    caves.destroy();
     std::cout << "program ran for: " << glfwGetTime() << " seconds" << std::endl;
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
     glfwTerminate();
-    return 0;
+    return 0; //FIN
 }
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
@@ -360,12 +360,14 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     screenX = width;screenY = height;
 }
 
+//compresses an rgba value into a single int
+//------------------------------------------
 unsigned int compress(uint8_t R, uint8_t G, uint8_t B, uint8_t A)
 {
     return unsigned int((256 * 256 * 256 * R) + (256 * 256 * G) + (256 * B) + (A));
 }
 
-
+//opengl debbugging
 void APIENTRY glDebugOutput(GLenum source,
     GLenum type,
     unsigned int id,

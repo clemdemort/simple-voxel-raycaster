@@ -12,15 +12,12 @@ public:
     float t1{};
     float t2{};
     float SyncClock{};
-    float SPSclock{};
-    float Sps1{};        //Syncs per second timestamp #1
-    float Sps2{};        //Syncs per second timestamp #2
-    float SpsTime{};     //ElapsedTime of each Sync
-
+    float ElapsedTime{};
     bool Sync(float frames)
     {
         t2 = glfwGetTime();
         SyncClock += t2 - t1; //calculates the ElapsedTime
+        ElapsedTime = SyncClock;
         t1 = t2;
         if (SyncClock > (1.0 / frames))
         {
@@ -29,6 +26,7 @@ public:
         }
         return false;
     }
+    
 };
 
 

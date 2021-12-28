@@ -4,10 +4,6 @@ out vec4 FragColor;
 in vec3 ourColor;
 in vec2 FragCoord;
 
-uniform vec3 rectRayUPRIGHT;
-uniform vec3 rectRayUPLEFT;
-uniform vec3 rectRayDOWNLEFT;
-uniform vec3 rectRayDOWNRIGHT;
 uniform float iTime;
 uniform float FOV;
 uniform float ElapsedTime;
@@ -18,12 +14,12 @@ uniform vec3 CameraDir;
 uniform vec2 iResolution;
 uniform vec2 Screen;
 uniform vec3 voxellist;
-const int MAX_RAY_STEPS = 500;
-layout(r32ui, binding = 0) uniform uimage3D voxels;
+const int MAX_RAY_STEPS = 100;
+layout(r32ui, binding = 0) uniform uimage3D voxels;//gets the binded texture
 
 
 
-//the almighty one
+//the life of
 float PI = 3.142857;
 
 //this dithering function removes banding
@@ -36,8 +32,8 @@ vec4 DeCompressCol(uint col)
 {   
     //this code decompresses the voxel Data into various colours, as of yet it support 256^4 RGBA colours 
     //which is a bit dumb so i'll reduce it to 128^4 and add different effects like reflection or light emmision
-    //and use it in my Signed Distance Field!!!
-    unsigned int R = (col /	 (256 * 256 * 256));                              //gets red hue
+    //and use it in my Signed Distance Field eventually...
+    unsigned int R = (col /	 (256 * 256 * 256));										//gets red hue
     unsigned int G = ((col - (R * (256 * 256 * 256))) / (256 * 256));                   //gets green hue
     unsigned int B = ((col - (R * (256 * 256 * 256) + (G * 256 * 256))) / (256));       //gets blue hue
     unsigned int A = ((col - (R * (256 * 256 * 256) + (G * 256 * 256) + (B * 256))));   //gets alpha hue
@@ -137,9 +133,10 @@ void main()
 					mask = bvec3(false, false, true);
 				}
 			}
-		    if(mapPos.x > 0 && mapPos.y > 0 && mapPos.z > 0 && mapPos.x <= voxellist.x && mapPos.y <= voxellist.y && mapPos.z <= voxellist.z)
+		    if(mapPos.x > 0 && mapPos.y > 0 && mapPos.z > 0 && mapPos.x <= voxellist.x && mapPos.y <= voxellist.y*2/*for showcase purposes*/ && mapPos.z <= voxellist.z)
 			{
-				BGcolor += vec3(0.0005,0.0005,0.0005);
+				//BGcolor += vec3(0.0005,0.0005,0.0005);
+				i--;
 				vec4 voxel = getVoxel(mapPos);
 				if(voxel.w >= 0.99){
 					color.xyz = (voxel.xyz*(1-color.w)+color.xyz*(color.w));	//if something is touched average it's colour with the current alpha(color.w)
