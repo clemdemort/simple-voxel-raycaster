@@ -14,6 +14,7 @@ Here is some terrain made with my custom noise header:
 
 this project runs on opengl 4.6 and uses GLAD this is a download to the configuartion im using so not to take up too much space
 
+https://glad.dav1d.de/#language=c&specification=gl&api=gl%3D4.6&api=gles1%3Dnone&api=gles2%3Dnone&api=glsc2%3Dnone&profile=compatibility&loader=on
 
 once downloaded put the "glad.c" source file inside the main folder
 
